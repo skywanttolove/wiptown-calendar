@@ -1,0 +1,12 @@
+{
+  "name": "wiptown-calendar",
+  "version": "2.0.0",
+  "description": "ปฏิทินงาน WIP Town — Calendar Hub สำหรับทีม",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve ."
+  },
+  "keywords": ["calendar", "team", "thai", "react"],
+  "license": "UNLICENSED",
+  "private": true
+}
