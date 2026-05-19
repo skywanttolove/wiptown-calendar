@@ -4,132 +4,40 @@
 
 // ---------- SEED DATA ----------
 const SEED_USERS = [
-  { id: "u1", email: "admin@wiptown.co", name: "WIP-Town", role: "admin",  pin: "1111", joined: "2024-08-12" },
-  { id: "u2", email: "graphic@wiptown.co", name: "GRAPHIC-WIP",     role: "editor", pin: "2222", joined: "2024-11-02" },
-  { id: "u3", email: "dev@wiptown.co",   name: "DEV-Wip",   role: "member", pin: "3333", joined: "2025-03-21" },
-  { id: "u4", email: "head@wiptown.co",    name: "HEAD-WIP",     role: "member", pin: "4444", joined: "2025-09-04" },
-  { id: "u5", email: "support@wiptown.co",   name: "SUPPORT-WIP",      role: "member", pin: "5555", joined: "2026-01-15" },
+  { id: "u1", email: "wiptown@gmail.com", name: "WIP Town Admin", role: "admin", pin: "1111", joined: "2026-05-20" },
 ];
 
-const SEED_PENDING = [
-  { id: "p1", email: "sky@wiptown.co", name: "Winter",  pin: "3012", requestedAt: "2026-05-18 09:42" },
-  { id: "p2", email: "shujai@wiptown.co",  name: "Shujai",   pin: "8888", requestedAt: "2026-05-19 14:08" },
-];
+const SEED_PENDING = [];
 
 const SEED_CATEGORIES = [
-  { id: "c-prod",   name: "ลิสต์งานหลัก",  color: "#a78bfa" },
-  { id: "c-design", name: "ลิสต์งาน Dev",      color: "#f0abfc" },
-  { id: "c-mkt",    name: "ลิสต์งาน ADmin",   color: "#7736df" },
-  { id: "c-meet",   name: "ลิสต์งาน Graphic",     color: "#3764a8" },
-  { id: "c-rel",    name: "กาชา",     color: "#fb7185" },
-  { id: "c-hr",     name: "รถ",    color: "#6366f1" },
+  { id: "c-main",    name: "ลิสต์งานหลัก",       color: "#6366f1" },
+  { id: "c-dev",     name: "ลิสต์งาน DEV",      color: "#34d399" },
+  { id: "c-admin",   name: "ลิสต์งาน ADMIN",    color: "#fb7185" },
+  { id: "c-graphic", name: "ลิสต์งาน GRAPHIC",  color: "#f0abfc" },
+  { id: "c-gacha",   name: "GACHA",              color: "#fbbf24" },
+  { id: "c-car",     name: "รถ",                 color: "#a78bfa" },
 ];
 
 const SEED_ANNOUNCEMENTS = [
   {
     id: "a1",
-    title: "เปิดตัวระบบปฏิทินทีม WIP Town v2.0",
-    body: "ตอนนี้ทุกคนสามารถจดโน้ตประจำวัน เช็คสถานะงาน และแนบรูปอ้างอิงในแต่ละวันได้แล้ว — แอดมินมีสิทธิ์จัดการประกาศ หมวดหมู่ และผู้ใช้งานทั้งหมดผ่านหน้า Admin",
+    title: "ยินดีต้อนรับสู่ WIP Town Calendar Hub",
+    body: "ระบบปฏิทินกลางของทีม — จดโน้ตงานประจำวัน ติดตามสถานะ แนบรูปอ้างอิง และลงประกาศได้จากหน้านี้",
     author: "u1",
-    date: "2026-05-18",
+    date: "2026-05-20",
     tag: "release",
     pinned: true,
-  },
-  {
-    id: "a2",
-    title: "Sprint 21 เริ่ม จันทร์นี้ 25 พ.ค. — ดูปฏิทิน",
-    body: "เป้าหมาย: ปิด Backend sync v2 และ UI Hand-off สำหรับ Mobile ภายในวันที่ 6 มิ.ย. รายละเอียดดูในวัน 26 พ.ค.",
-    author: "u2",
-    date: "2026-05-17",
-    tag: "production",
-    pinned: true,
-  },
-  {
-    id: "a3",
-    title: "Town Hall — พฤหัสฯ 21 พ.ค. 14:00 ห้องประชุมใหญ่",
-    body: "สรุปผลงานไตรมาส 2 และเปิดโอกาส Q&A ทีมผู้บริหารตอบทุกคำถาม ลิงก์ Zoom ในวันที่ 21 พ.ค.",
-    author: "u1",
-    date: "2026-05-15",
-    tag: "meeting",
-    pinned: false,
-  },
-  {
-    id: "a4",
-    title: "พนักงานใหม่ ทักทายคุณมิ้นท์ พิจิตรา",
-    body: "ยินดีต้อนรับมิ้นท์เข้าทีม Brand Design เริ่มงาน 15 ม.ค. ที่ผ่านมา ทักทายได้ที่ #welcome",
-    author: "u1",
-    date: "2026-05-12",
-    tag: "hr",
-    pinned: false,
   },
 ];
 
 // Build notes spanning current month so calendar always looks alive
 function seedNotesForCurrentMonth() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const k = (d) => `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-  return {
-    [k(3)]: [
-      { id: "n1", text: "Kickoff Sprint 21 — สรุป backlog ทั้งหมดและจัดลำดับ", cat: "c-meet",   done: true,  author: "u2", at: "09:00" },
-      { id: "n2", text: "ส่ง mockup หน้า Settings v2 ให้ทีม Eng review",       cat: "c-design", done: true,  author: "u3", at: "14:20" },
-    ],
-    [k(5)]: [
-      { id: "n3", text: "Weekly 1:1 — feedback round กับทีม Backend", cat: "c-hr", done: true, author: "u1", at: "10:00" },
-    ],
-    [k(8)]: [
-      { id: "n4", text: "ปล่อย hotfix v1.9.2 — auth retry logic",        cat: "c-rel",  done: true,  author: "u2", at: "16:30" },
-      { id: "n5", text: "อัปเดต changelog ลง #release-notes",             cat: "c-rel",  done: true,  author: "u4", at: "17:00" },
-    ],
-    [k(12)]: [
-      { id: "n6", text: "ประชุม Brand refresh — round 2",                  cat: "c-mkt",   done: true,  author: "u3", at: "13:00" },
-      { id: "n7", text: "ออกแบบ social asset campaign เมษา–พ.ค.",       cat: "c-design",done: false, author: "u5", at: "15:00" },
-    ],
-    [k(15)]: [
-      { id: "n8", text: "Audit dependency ทั้ง monorepo + bump versions", cat: "c-prod", done: true, author: "u4", at: "11:00" },
-    ],
-    [k(19)]: [
-      { id: "n9", text: "เตรียมสไลด์ Town Hall ส่งให้ผู้บริหารรีวิว",       cat: "c-meet",  done: false, author: "u1", at: "10:30" },
-      { id: "n10",text: "ออกแบบโปสเตอร์ประกาศ Town Hall",                 cat: "c-design",done: false, author: "u3", at: "16:00", images: ["placeholder"] },
-    ],
-    [k(20)]: [
-      { id: "n11", text: "Daily Standup — สรุป blockers ทั้งสัปดาห์", cat: "c-meet", done: false, author: "u2", at: "09:30" },
-      { id: "n12", text: "Code review PR #482 backend sync v2",       cat: "c-prod", done: false, author: "u4", at: "11:00" },
-      { id: "n13", text: "ส่งของ swag ใหม่ให้พนักงานใหม่ (3 คน)",       cat: "c-hr",   done: true,  author: "u1", at: "14:00" },
-    ],
-    [k(21)]: [
-      { id: "n14", text: "Town Hall Q2 — ห้องประชุมใหญ่ 14:00",       cat: "c-meet",  done: false, author: "u1", at: "14:00" },
-      { id: "n15", text: "Recording + Q&A doc แชร์ลง drive",          cat: "c-meet",  done: false, author: "u2", at: "16:30" },
-    ],
-    [k(22)]: [
-      { id: "n16", text: "Retro ทีม Design — แบ่ง breakout 3 กลุ่ม",   cat: "c-meet",  done: false, author: "u3", at: "13:00" },
-    ],
-    [k(25)]: [
-      { id: "n17", text: "Sprint 21 Start — Planning Poker",          cat: "c-meet",  done: false, author: "u2", at: "10:00" },
-      { id: "n18", text: "Mobile UI hand-off package เริ่มเตรียม",      cat: "c-design",done: false, author: "u3", at: "14:00" },
-    ],
-    [k(28)]: [
-      { id: "n19", text: "Marketing email blast — feature launch",     cat: "c-mkt",   done: false, author: "u5", at: "09:00" },
-      { id: "n20", text: "ตรวจสอบ analytics dashboard ก่อนปล่อย",      cat: "c-prod",  done: false, author: "u4", at: "11:30" },
-    ],
-  };
+  return {};
 }
 
-const SEED_ACTIVITY = (() => {
-  const d = new Date();
-  const y = d.getFullYear(), m = d.getMonth();
-  const k = (day) => `${y}-${String(m+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-  return [
-    { id: "l1", who: "u1", action: "ลงประกาศใหม่", target: "เปิดตัวระบบปฏิทินทีม v2.0", at: "2026-05-18 09:12" },
-    { id: "l2", who: "u3", action: "เพิ่มงาน",      target: "ออกแบบโปสเตอร์ประกาศ Town Hall", at: "2026-05-17 16:42", link: { dateKey: k(19), kind: "add" } },
-    { id: "l3", who: "u2", action: "ปิดงาน",        target: "Kickoff Sprint 21",              at: "2026-05-17 11:30", link: { dateKey: k(3),  kind: "done" } },
-    { id: "l4", who: "u4", action: "อัปโหลดรูป",    target: "3 ไฟล์ · code review snapshot",  at: "2026-05-16 14:08", link: { dateKey: k(15), kind: "image" } },
-    { id: "l5", who: "u3", action: "เพิ่มงาน",      target: "ออกแบบ social asset campaign",  at: "2026-05-15 10:00", link: { dateKey: k(12), kind: "add" } },
-    { id: "l6", who: "u1", action: "เปลี่ยน Hero image", target: "WIP Town v2", at: "2026-05-12 10:00" },
-    { id: "l7", who: "u4", action: "เพิ่มหมวดหมู่", target: "Release", at: "2026-04-28 13:20" },
-  ];
-})();
+const SEED_ACTIVITY = [
+  { id: "l1", who: "u1", action: "ติดตั้งระบบ", target: "ยินดีต้อนรับ เริ่มต้นได้เลยตอนนี้!", at: "2026-05-20 09:00" },
+];
 
 const DEFAULT_STATE = () => ({
   currentUserId: null,
@@ -145,7 +53,7 @@ const DEFAULT_STATE = () => ({
 });
 
 // ---------- STORE ----------
-const STORAGE_KEY = "wiptown_calendar_v7";
+const STORAGE_KEY = "wiptown_calendar_v9";
 
 function loadState() {
   try {
@@ -290,6 +198,13 @@ const store = {
   addCategory(c) { store.set(s => ({ categories: [...s.categories, { id: "c-" + Date.now(), color: "#a78bfa", ...c }] })); store.markSyncing(); },
   removeCategory(id) { store.set(s => ({ categories: s.categories.filter(c => c.id !== id) })); store.markSyncing(); },
 
+  clearAllNotes() {
+    const me = store.me();
+    store.set({ notes: {} });
+    store.log(me?.id, "ล้างปฏิทินทั้งหมด", "ลบงานทั้งหมดในปฏิทิน");
+    store.markSyncing();
+  },
+
   // Users
   addUser(u) {
     const me = store.me();
@@ -306,6 +221,12 @@ const store = {
   },
   setUserRole(id, role) {
     store.set(s => ({ users: s.users.map(u => u.id === id ? { ...u, role } : u) }));
+    store.markSyncing();
+  },
+  updateUser(id, patch) {
+    const me = store.me();
+    store.set(s => ({ users: s.users.map(u => u.id === id ? { ...u, ...patch } : u) }));
+    if (patch.name) store.log(me?.id, "แก้ไขโปรไฟล์", patch.name);
     store.markSyncing();
   },
 

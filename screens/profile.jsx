@@ -5,7 +5,21 @@ function ProfileScreen() {
   const state = useStore();
   const me = store.me();
   const [name, setName] = React.useState(me?.name || "");
+  const [pin, setPin] = React.useState(me?.pin || "");
+  const [saved, setSaved] = React.useState(false);
   const [notif, setNotif] = React.useState({ daily: true, mentions: true, announcements: true });
+
+  React.useEffect(() => { setName(me?.name || ""); setPin(me?.pin || ""); }, [me?.id]);
+
+  const dirty = name !== me?.name || pin !== me?.pin;
+
+  const save = () => {
+    if (!name.trim()) return;
+    if (pin.length !== 4) { alert("PIN ต้องมี 4 หลัก"); return; }
+    store.updateUser(me.id, { name: name.trim(), pin });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
 
   const myNotes = Object.entries(state.notes).flatMap(([k, ns]) => ns.filter(n => n.author === me?.id).map(n => ({ ...n, dateKey: k })));
   const doneCount = myNotes.filter(n => n.done).length;
@@ -51,9 +65,26 @@ function ProfileScreen() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div className="card">
             <h2 className="h-section">ข้อมูลส่วนตัว</h2>
-            <div className="field"><label>ชื่อ-นามสกุล</label><input className="input" value={name} onChange={e => setName(e.target.value)}/></div>
-            <div className="field" style={{ marginTop: 12 }}><label>อีเมล</label><input className="input" value={me?.email} readOnly style={{ color: "var(--muted)" }}/></div>
-            <button className="btn primary sm" style={{ marginTop: 14 }}><Icon name="check" size={12}/> บันทึก</button>
+            <div className="field"><label>ชื่อ-นามสกุล</label><input className="input" value={name} onChange={e => { setName(e.target.value); setSaved(false); }}/></div>
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>อีเมล</label>
+              <input className="input" value={me?.email} readOnly style={{ color: "var(--muted)" }}/>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>อีเมลแก้ไขไม่ได้ — ถ้าต้องเปลี่ยน ติดต่อแอดมิน</div>
+            </div>
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>PIN (4 หลัก)</label>
+              <input className="input" type="tel" inputMode="numeric" maxLength={4}
+                     value={pin}
+                     onChange={e => { setPin(e.target.value.replace(/\D/g,"").slice(0,4)); setSaved(false); }}
+                     style={{ letterSpacing: 8, fontFamily: "var(--mono)", fontSize: 18, textAlign: "center", maxWidth: 180 }}/>
+            </div>
+            <div className="row" style={{ marginTop: 14, gap: 10 }}>
+              <button className="btn primary sm" onClick={save} disabled={!dirty || !name.trim() || pin.length !== 4}>
+                <Icon name="check" size={12}/> บันทึก
+              </button>
+              {saved && <span style={{ fontSize: 12, color: "var(--green)" }}>✓ บันทึกแล้ว</span>}
+              {dirty && !saved && <span style={{ fontSize: 12, color: "var(--amber)" }}>มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก</span>}
+            </div>
           </div>
 
           <div className="card">

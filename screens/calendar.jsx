@@ -3,6 +3,8 @@
 
 function CalendarScreen() {
   const state = useStore();
+  const me = store.me();
+  const isAdmin = me?.role === "admin";
   const today = new Date();
   const [view, setView] = React.useState(() => {
     if (window.__openDay) {
@@ -71,6 +73,17 @@ function CalendarScreen() {
               </button>
             ))}
           </div>
+          {isAdmin && (
+            <button className="btn sm danger" onClick={() => {
+              const total = Object.values(state.notes).flat().length;
+              if (total === 0) { alert("ปฏิทินว่างอยู่แล้ว"); return; }
+              if (confirm(`ล้างงานทั้งหมด ${total} รายการในปฏิทิน?\n\nการกระทำนี้ไม่สามารถกู้คืนได้`)) {
+                store.clearAllNotes();
+              }
+            }}>
+              <Icon name="trash" size={12}/> ล้างปฏิทิน
+            </button>
+          )}
         </div>
       </div>
 
