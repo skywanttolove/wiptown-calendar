@@ -120,7 +120,7 @@ const store = {
     const me = store.me();
     const req = _state.pending.find(p => p.id === id);
     if (!req) return;
-    const newUser = { id: "u" + Date.now(), email: req.email, name: req.name, pin: req.pin, role, joined: new Date().toISOString().slice(0,10) };
+    const newUser = { id: "u" + Date.now(), email: req.email, name: req.name, pin: req.pin, role, joined: todayLocal() };
     store.set(s => ({ users: [...s.users, newUser], pending: s.pending.filter(p => p.id !== id) }));
     store.log(me?.id, "อนุมัติผู้ใช้ใหม่", req.email + " (" + role + ")");
     store.markSyncing();
@@ -178,7 +178,7 @@ const store = {
   // Announcements
   addAnnouncement(a) {
     const me = store.me();
-    const next = [{ id: "a" + Date.now(), date: new Date().toISOString().slice(0,10), author: me?.id, pinned: false, tag: "general", ...a }, ..._state.announcements];
+    const next = [{ id: "a" + Date.now(), date: todayLocal(), author: me?.id, pinned: false, tag: "general", ...a }, ..._state.announcements];
     store.set({ announcements: next });
     store.log(me?.id, "ลงประกาศใหม่", a.title);
     store.markSyncing();
@@ -208,7 +208,7 @@ const store = {
   // Users
   addUser(u) {
     const me = store.me();
-    store.set(s => ({ users: [...s.users, { id: "u" + Date.now(), role: "member", joined: new Date().toISOString().slice(0,10), ...u }] }));
+    store.set(s => ({ users: [...s.users, { id: "u" + Date.now(), role: "member", joined: todayLocal(), ...u }] }));
     store.log(me?.id, "เพิ่มผู้ใช้", u.email);
     store.markSyncing();
   },
@@ -276,7 +276,12 @@ function nowHM() {
 }
 function nowFull() {
   const d = new Date();
-  return `${d.toISOString().slice(0,10)} ${nowHM()}`;
+  return `${todayLocal()} ${nowHM()}`;
+}
+// Local date as YYYY-MM-DD (avoids UTC off-by-one near midnight in TH timezone)
+function todayLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 const THAI_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const THAI_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
