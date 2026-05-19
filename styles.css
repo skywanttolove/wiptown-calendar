@@ -580,6 +580,51 @@ input, textarea, select { font-family: inherit; color: inherit; }
 .thumb-clickable { transition: transform 120ms, box-shadow 120ms; }
 .thumb-clickable:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
 
+/* Repeat options segmented control */
+.repeat-group {
+  display: inline-flex;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.repeat-opt {
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  color: var(--text-2);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 120ms;
+}
+.repeat-opt:hover { color: var(--text); }
+.repeat-opt.active {
+  background: var(--indigo);
+  color: #fff;
+  font-weight: 500;
+}
+
+.repeat-banner {
+  font-size: 11px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
+.repeat-banner.amber {
+  color: var(--amber);
+  background: rgba(251,191,36,0.08);
+  border: 1px solid rgba(251,191,36,0.3);
+}
+.repeat-banner.violet {
+  color: var(--violet);
+  background: rgba(167,139,250,0.08);
+  border: 1px solid rgba(167,139,250,0.3);
+}
+
 /* =========================================================
    HERO / HOME
    ========================================================= */
