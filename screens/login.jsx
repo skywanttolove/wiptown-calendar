@@ -142,28 +142,6 @@ function LoginScreen() {
               <Icon name="chevR" size={14} />
             </button>
 
-            <div className="login-divider">หรือทดลองด้วยบัญชีตัวอย่าง</div>
-
-            <div className="demo-accounts">
-              {state.users.slice(0, 3).map(u => (
-                <div key={u.id}
-                  className="demo-row"
-                  onClick={() => quick(u.email, u.pin)}>
-                  <div className="row" style={{ gap: 10, minWidth: 0, flex: 1 }}>
-                    <div className="avatar" style={{ width: 28, height: 28, fontSize: 11 }}>{fmt.initials(u.name)}</div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>{u.name}</div>
-                      <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--muted)" }}>{u.email}</div>
-                    </div>
-                  </div>
-                  <div className="row" style={{ gap: 8 }}>
-                    <span className="pin-hint">PIN {u.pin}</span>
-                    <span className={"role-tag " + u.role}>{u.role.toUpperCase()}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
             <div style={{ fontSize: 12, color: "var(--muted)", textAlign: "center", marginTop: 4 }}>
               ยังไม่มีบัญชี? <a className="link" onClick={() => { setMode("request"); setErr(""); setPin(["","","",""]); }}>ส่งคำขอเข้าใช้งาน</a>
             </div>

@@ -4,16 +4,16 @@
 
 // ---------- SEED DATA ----------
 const SEED_USERS = [
-  { id: "u1", email: "admin@wiptown.co", name: "อาทิตย์ จันทร์ฉาย", role: "admin",  pin: "1111", joined: "2024-08-12" },
-  { id: "u2", email: "editor@wiptown.co", name: "ภูริ มณีรัตน์",     role: "editor", pin: "2222", joined: "2024-11-02" },
-  { id: "u3", email: "ploy@wiptown.co",   name: "พลอย สุริยกานต์",   role: "member", pin: "3333", joined: "2025-03-21" },
-  { id: "u4", email: "ken@wiptown.co",    name: "เคน วิทยานุกูล",     role: "member", pin: "4444", joined: "2025-09-04" },
-  { id: "u5", email: "mint@wiptown.co",   name: "มิ้นท์ พิจิตรา",      role: "member", pin: "5555", joined: "2026-01-15" },
+  { id: "u1", email: "admin@wiptown.co", name: "WIP-Town", role: "admin",  pin: "1111", joined: "2024-08-12" },
+  { id: "u2", email: "graphic@wiptown.co", name: "GRAPHIC-WIP",     role: "editor", pin: "2222", joined: "2024-11-02" },
+  { id: "u3", email: "dev@wiptown.co",   name: "DEV-Wip",   role: "member", pin: "3333", joined: "2025-03-21" },
+  { id: "u4", email: "head@wiptown.co",    name: "HEAD-WIP",     role: "member", pin: "4444", joined: "2025-09-04" },
+  { id: "u5", email: "support@wiptown.co",   name: "SUPPORT-WIP",      role: "member", pin: "5555", joined: "2026-01-15" },
 ];
 
 const SEED_PENDING = [
-  { id: "p1", email: "newhire@wiptown.co", name: "นันท์ชนก สุขสวัสดิ์",  pin: "4823", requestedAt: "2026-05-18 09:42" },
-  { id: "p2", email: "intern@wiptown.co",  name: "รัชชานี จิตรอาภรณ์",   pin: "7102", requestedAt: "2026-05-19 14:08" },
+  { id: "p1", email: "sky@wiptown.co", name: "Winter",  pin: "3012", requestedAt: "2026-05-18 09:42" },
+  { id: "p2", email: "shujai@wiptown.co",  name: "Shujai",   pin: "8888", requestedAt: "2026-05-19 14:08" },
 ];
 
 const SEED_CATEGORIES = [
