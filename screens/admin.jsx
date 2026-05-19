@@ -79,7 +79,17 @@ function AnnouncementsAdmin({ state }) {
                   </button>
                 </td>
                 <td style={{ color: "var(--text)", fontWeight: 500 }}>{a.title}</td>
-                <td><span className="badge violet">{a.tag}</span></td>
+                <td>
+                  {(() => {
+                    const cat = state.categories.find(c => c.id === a.tag);
+                    const color = cat?.color || "#a78bfa";
+                    return (
+                      <span className="badge" style={{ color, background: color + "22", borderColor: color + "55" }}>
+                        <span className="dot" style={{ background: color }}></span>{cat?.name || a.tag || "—"}
+                      </span>
+                    );
+                  })()}
+                </td>
                 <td>
                   <div className="row" style={{ gap: 6 }}>
                     <div className="avatar" style={{ width: 22, height: 22, fontSize: 10 }}>{fmt.initials(u?.name)}</div>

@@ -25,7 +25,7 @@ const SEED_ANNOUNCEMENTS = [
     body: "ระบบปฏิทินกลางของทีม — จดโน้ตงานประจำวัน ติดตามสถานะ แนบรูปอ้างอิง และลงประกาศได้จากหน้านี้",
     author: "u1",
     date: "2026-05-20",
-    tag: "release",
+    tag: "c-main",
     pinned: true,
   },
 ];
@@ -53,7 +53,7 @@ const DEFAULT_STATE = () => ({
 });
 
 // ---------- STORE ----------
-const STORAGE_KEY = "wiptown_calendar_v9";
+const STORAGE_KEY = "wiptown_calendar_v10";
 
 function loadState() {
   try {

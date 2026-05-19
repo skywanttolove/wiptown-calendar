@@ -148,7 +148,8 @@ function HomeScreen({ go }) {
 function AnnounceCard({ a, state, canEdit }) {
   const u = store.user(a.author);
   const date = new Date(a.date);
-  const tagColors = { release: "rose", production: "indigo", meeting: "green", hr: "amber", design: "pink", general: "violet" };
+  const cat = state.categories.find(c => c.id === a.tag);
+  const color = cat?.color || "#a78bfa";
   return (
     <div className={"announce " + (a.pinned ? "pinned" : "")}>
       <div className="date">
@@ -157,7 +158,9 @@ function AnnounceCard({ a, state, canEdit }) {
       </div>
       <div className="body">
         <div className="meta-row">
-          <span className={"badge " + (tagColors[a.tag] || "violet")}><span className="dot"></span>{a.tag}</span>
+          <span className="badge" style={{ color, background: color + "22", borderColor: color + "55" }}>
+            <span className="dot" style={{ background: color }}></span>{cat?.name || a.tag || "ทั่วไป"}
+          </span>
           <span style={{ fontSize: 11, color: "var(--muted)" }}>โดย {u?.name || "—"}</span>
           {a.pinned && <span className="badge pink"><Icon name="pin" size={10}/> ปักหมุด</span>}
         </div>
@@ -179,15 +182,17 @@ function AnnounceCard({ a, state, canEdit }) {
 }
 
 function ComposeAnnouncement({ onClose }) {
+  const state = useStore();
   const [title, setTitle] = React.useState("");
   const [body, setBody] = React.useState("");
-  const [tag, setTag] = React.useState("general");
+  const [tag, setTag] = React.useState(state.categories[0]?.id || "");
   const [pinned, setPinned] = React.useState(false);
   const submit = () => {
     if (!title.trim()) return;
     store.addAnnouncement({ title, body, tag, pinned });
     onClose();
   };
+  const selectedCat = state.categories.find(c => c.id === tag);
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
@@ -207,29 +212,33 @@ function ComposeAnnouncement({ onClose }) {
             <label>รายละเอียด</label>
             <textarea className="textarea" placeholder="เขียนข้อความประกาศ…" value={body} onChange={e => setBody(e.target.value)}/>
           </div>
-          <div className="row" style={{ gap: 18 }}>
-            <div className="field" style={{ flex: 1 }}>
-              <label>หมวด</label>
-              <select className="select" value={tag} onChange={e => setTag(e.target.value)}>
-                <option value="general">general</option>
-                <option value="release">release</option>
-                <option value="production">production</option>
-                <option value="meeting">meeting</option>
-                <option value="design">design</option>
-                <option value="hr">hr</option>
-              </select>
+          <div className="field">
+            <label>หมวดหมู่</label>
+            <div className="cat-chips" style={{ marginTop: 4 }}>
+              {state.categories.map(c => (
+                <button key={c.id} type="button"
+                  className={"cat-chip " + (tag === c.id ? "active" : "")}
+                  onClick={() => setTag(c.id)}>
+                  <span className="dot" style={{ background: c.color }}></span>{c.name}
+                </button>
+              ))}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
-              <div className={"toggle " + (pinned ? "on" : "")} onClick={() => setPinned(!pinned)}></div>
-              <div style={{ fontSize: 13, color: "var(--text-2)" }}>ปักหมุดที่ด้านบน</div>
-            </div>
+            {selectedCat && (
+              <div style={{ marginTop: 8, fontSize: 11, color: "var(--muted)" }}>
+                จะเห็น badge สี <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: selectedCat.color, verticalAlign: "middle", margin: "0 4px" }}></span> {selectedCat.name} บนประกาศ
+              </div>
+            )}
+          </div>
+          <div className="row" style={{ gap: 10, alignItems: "center" }}>
+            <div className={"toggle " + (pinned ? "on" : "")} onClick={() => setPinned(!pinned)}></div>
+            <div style={{ fontSize: 13, color: "var(--text-2)" }}>ปักหมุดที่ด้านบน</div>
           </div>
         </div>
         <div className="modal-foot">
           <div style={{ fontSize: 11, color: "var(--muted)" }}>ประกาศจะถูก sync ขึ้น GitHub อัตโนมัติ</div>
           <div className="row">
             <button className="btn ghost" onClick={onClose}>ยกเลิก</button>
-            <button className="btn primary" onClick={submit}><Icon name="check" size={14}/> เผยแพร่</button>
+            <button className="btn primary" onClick={submit} disabled={!title.trim() || !tag}><Icon name="check" size={14}/> เผยแพร่</button>
           </div>
         </div>
       </div>
