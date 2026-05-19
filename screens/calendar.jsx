@@ -150,6 +150,7 @@ function DayDetail({ dateKey, onClose }) {
   const fileRef = React.useRef();
   const [tab, setTab] = React.useState("notes"); // notes | images
   const [lightbox, setLightbox] = React.useState(null); // { images: [...], index: 0 }
+  const [repeatMonth, setRepeatMonth] = React.useState(false);
 
   const openLightbox = (allList, src) => {
     const list = allList.filter(s => s && s !== "placeholder");
@@ -160,7 +161,18 @@ function DayDetail({ dateKey, onClose }) {
 
   const submit = () => {
     if (!text.trim()) return;
-    store.addNote(dateKey, { text, cat, author: me?.id });
+    if (repeatMonth) {
+      // Add the same note to every day of dateKey's month
+      const { y, m } = fmt.parseKey(dateKey);
+      const last = new Date(y, m+1, 0).getDate();
+      for (let d = 1; d <= last; d++) {
+        const k = fmt.dateKey(y, m, d);
+        store.addNote(k, { text, cat, author: me?.id });
+      }
+      setRepeatMonth(false);
+    } else {
+      store.addNote(dateKey, { text, cat, author: me?.id });
+    }
     setText("");
   };
 
@@ -271,16 +283,24 @@ function DayDetail({ dateKey, onClose }) {
               <div className="note-add">
                 <textarea className="textarea" placeholder="เพิ่มสิ่งที่ต้องทำในวันนี้…" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}/>
                 <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                  <div className="row" style={{ gap: 6 }}>
+                  <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
                     <select className="select" style={{ width: "auto", padding: "6px 10px", fontSize: 12 }} value={cat} onChange={e => setCat(e.target.value)}>
                       {state.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
-                    <span style={{ fontSize: 11, color: "var(--muted)" }}>กด ⌘+Enter เพื่อบันทึก</span>
+                    <button type="button" className={"cat-chip " + (repeatMonth ? "active" : "")} onClick={() => setRepeatMonth(r => !r)} title="สร้างงานเดียวกันลงทุกวันของเดือนนี้">
+                      <Icon name="refresh" size={11}/> ทำซ้ำทุกวันของเดือน
+                    </button>
+                    <span style={{ fontSize: 11, color: "var(--muted)" }}>⌘+Enter</span>
                   </div>
                   <button className="btn primary sm" onClick={submit} disabled={!text.trim()}>
-                    <Icon name="plus" size={12}/> เพิ่มงาน
+                    <Icon name="plus" size={12}/> {repeatMonth ? "เพิ่มทั้งเดือน" : "เพิ่มงาน"}
                   </button>
                 </div>
+                {repeatMonth && (
+                  <div style={{ fontSize: 11, color: "var(--amber)", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)", padding: "6px 10px", borderRadius: 6 }}>
+                    ⚡ งานนี้จะถูกสร้างในทุกวันของเดือนนี้ ({(() => { const {y,m} = fmt.parseKey(dateKey); return new Date(y, m+1, 0).getDate(); })()} วัน) — เช็คเสร็จ/ลบแยกกันได้แต่ละวัน
+                  </div>
+                )}
               </div>
             </>
           )}
