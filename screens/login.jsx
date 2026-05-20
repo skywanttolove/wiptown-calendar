@@ -46,12 +46,35 @@ function LoginScreen() {
     else if (res.error === "bad_pin") { setErr("PIN ไม่ถูกต้อง"); setPin(["","","",""]); pinRefs.current[0]?.focus(); }
   };
 
-  const submitRequest = () => {
+  const submitRequest = async () => {
     if (!email.trim() || !name.trim()) { setErr("กรุณากรอกข้อมูลให้ครบ"); return; }
     if (fullPin.length !== 4) { setErr("กรุณาตั้ง PIN 4 หลัก"); return; }
+
+    // Save locally first (in case admin opens this same browser)
     const res = store.requestAccess({ email, name, pin: fullPin });
     if (res.error === "exists") { setErr("อีเมลนี้มีในระบบอยู่แล้ว — กดเข้าสู่ระบบ"); return; }
     if (res.error === "already_pending") { setErr("อีเมลนี้ส่งคำขอไว้แล้ว — รอแอดมินอนุมัติ"); return; }
+
+    // Send email to admin via FormSubmit.co (free, no API key)
+    try {
+      await fetch("https://formsubmit.co/ajax/wiptown@gmail.com", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          _subject: "[WIP Town] คำขอเข้าใช้งานใหม่: " + name,
+          _captcha: "false",
+          ชื่อ: name,
+          อีเมล: email,
+          PIN: fullPin,
+          เวลา: new Date().toLocaleString("th-TH"),
+          message: `มีคนขอเข้าใช้งานเว็บ WIP Town Calendar\n\nชื่อ: ${name}\nอีเมล: ${email}\nPIN: ${fullPin}\n\nกรุณาเข้า Admin Panel → ผู้ใช้งาน → เพิ่มผู้ใช้ใหม่ ด้วยข้อมูลข้างต้น`,
+        }),
+      });
+    } catch (e) {
+      // network error — local save still went through
+      console.warn("FormSubmit failed", e);
+    }
+
     setMode("requested");
   };
 
@@ -198,10 +221,13 @@ function LoginScreen() {
               <Icon name="check" size={28} stroke={3}/>
             </div>
             <h1 style={{ margin: 0 }}>ส่งคำขอแล้ว</h1>
-            <p style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.6, maxWidth: 320 }}>
-              คำขอของ <strong style={{ color: "var(--text)" }}>{email}</strong> ถูกส่งให้แอดมินตรวจสอบแล้ว เมื่อได้รับการอนุมัติ
-              คุณจะสามารถเข้าสู่ระบบด้วย PIN ที่ตั้งไว้
+            <p style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.6, maxWidth: 360 }}>
+              คำขอของ <strong style={{ color: "var(--text)" }}>{email}</strong> ถูกส่งทางอีเมลให้แอดมินแล้ว
+              เมื่อได้รับอนุมัติ คุณจะสามารถเข้าสู่ระบบด้วย PIN ที่ตั้งไว้
             </p>
+            <div style={{ fontSize: 11, color: "var(--muted)", background: "var(--surface)", border: "1px solid var(--border)", padding: 10, borderRadius: 8, maxWidth: 340 }}>
+              📧 แอดมินจะได้รับอีเมลแจ้งเตือนที่ <strong>wiptown@gmail.com</strong>
+            </div>
             <button className="btn" onClick={() => { setMode("signin"); setEmail(""); setName(""); setPin(["","","",""]); setErr(""); }}>
               ← กลับไปหน้าเข้าสู่ระบบ
             </button>

@@ -152,12 +152,27 @@ function App() {
 }
 
 function SyncStatus({ state }) {
+  const enabled = store.isCloudEnabled();
   const s = state.sync.status;
+  const onClick = async () => {
+    if (!enabled) return;
+    const ok = await store.pullFromCloud();
+    if (ok) {
+      // visual feedback
+    }
+  };
+  if (!enabled) {
+    return (
+      <span className="sync-bar" title="Cloud sync ยังไม่ได้ตั้งค่า — ดูคำแนะนำใน store.jsx" style={{ cursor: "default" }}>
+        <span className="dot" style={{ background: "var(--muted-2)", boxShadow: "none", animation: "none" }}></span>
+        local only
+      </span>
+    );
+  }
   return (
-    <span className={"sync-bar " + (s !== "synced" ? "syncing" : "")} title={"github.com/" + state.sync.repo}>
+    <span className={"sync-bar " + (s !== "synced" ? "syncing" : "")} onClick={onClick} title="คลิกเพื่อดึงข้อมูลล่าสุด" style={{ cursor: "pointer" }}>
       <span className="dot"></span>
-      <Icon name="github" size={11}/>
-      {s === "synced" ? "synced" : "syncing…"}
+      ☁️ {s === "synced" ? "cloud sync" : "syncing…"}
     </span>
   );
 }

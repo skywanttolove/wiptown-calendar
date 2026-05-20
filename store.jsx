@@ -1,6 +1,52 @@
 /* eslint-disable */
-// Data store + seed data + small SVG icons.
-// Exposes to window: store, useStore, Icon, fmt, GitHubSync
+// Data store + seed data + small SVG icons + CLOUD SYNC via JSONBin.io
+
+// =====================================================================
+// ☁️  CLOUD SYNC CONFIG — paste your JSONBin.io credentials here
+// =====================================================================
+// 1. Sign up at https://jsonbin.io (free, with Google)
+// 2. Create a new bin with this initial content: {"_init": true}
+// 3. Copy the "BIN ID" (in the bin URL after /b/) and paste below
+// 4. Copy "X-Master-Key" (from your account page) and paste below
+// 5. Save this file & push. Sync will activate automatically.
+// =====================================================================
+const CLOUD = {
+  binId:  "6a0d0c036610dd3ae872cd45",   
+  apiKey: "$2a$10$8ll9pq4g1yxh4hxzJR29YuUaSROu/C/Ul6LYcjNEWctmLfZeMnXvG",   
+const CLOUD_ENABLED = !!(CLOUD.binId && CLOUD.apiKey);
+
+async function cloudLoad() {
+  if (!CLOUD_ENABLED) return null;
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${CLOUD.binId}/latest`, {
+      headers: { "X-Master-Key": CLOUD.apiKey, "X-Bin-Meta": "false" }
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    return data && !data._init ? data : null;
+  } catch (e) {
+    console.warn("[cloud] load failed:", e);
+    return null;
+  }
+}
+
+let _cloudTimer = null;
+async function cloudPush(state) {
+  if (!CLOUD_ENABLED) return;
+  clearTimeout(_cloudTimer);
+  _cloudTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${CLOUD.binId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-Master-Key": CLOUD.apiKey },
+        body: JSON.stringify({ ...state, currentUserId: undefined })  // don't sync who is logged in
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+    } catch (e) {
+      console.warn("[cloud] push failed:", e);
+    }
+  }, 1500);
+}
 
 // ---------- SEED DATA ----------
 const SEED_USERS = [
@@ -87,10 +133,23 @@ const store = {
     const patch = typeof updater === "function" ? updater(_state) : updater;
     _state = { ..._state, ...patch };
     saveState(_state);
+    cloudPush(_state);
     subscribers.forEach(fn => fn(_state));
   },
   subscribe(fn) { subscribers.add(fn); return () => subscribers.delete(fn); },
-  reset() { _state = DEFAULT_STATE(); saveState(_state); subscribers.forEach(fn => fn(_state)); },
+  reset() { _state = DEFAULT_STATE(); saveState(_state); cloudPush(_state); subscribers.forEach(fn => fn(_state)); },
+
+  async pullFromCloud() {
+    if (!CLOUD_ENABLED) return false;
+    const remote = await cloudLoad();
+    if (!remote) return false;
+    const currentUserId = _state.currentUserId;
+    _state = { ...DEFAULT_STATE(), ...remote, currentUserId };
+    saveState(_state);
+    subscribers.forEach(fn => fn(_state));
+    return true;
+  },
+  isCloudEnabled() { return CLOUD_ENABLED; },
 
   // Mutations
   login(email, pin) {
@@ -358,3 +417,12 @@ function Icon({ name, size = 16, stroke = 2, className = "", style = {} }) {
 
 // ---------- EXPORT ----------
 Object.assign(window, { store, useStore, Icon, fmt });
+
+// On startup: try to pull from cloud (overrides local seed if cloud has data)
+if (CLOUD_ENABLED) {
+  store.pullFromCloud().then(ok => {
+    if (ok) console.log("[cloud] synced from", CLOUD.binId);
+    // Auto-refresh from cloud every 30s while page is open
+    setInterval(() => { if (!document.hidden) store.pullFromCloud(); }, 30000);
+  });
+}
