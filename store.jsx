@@ -13,6 +13,7 @@
 const CLOUD = {
   binId:  "6a0d0c036610dd3ae872cd45",   
   apiKey: "$2a$10$8ll9pq4g1yxh4hxzJR29YuUaSROu/C/Ul6LYcjNEWctmLfZeMnXvG",   
+  };
 const CLOUD_ENABLED = !!(CLOUD.binId && CLOUD.apiKey);
 
 async function cloudLoad() {
