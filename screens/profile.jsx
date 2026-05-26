@@ -33,12 +33,45 @@ function ProfileScreen() {
         <div>
           <div className="card profile-card">
             <div className="head">
-              <div className="avatar-lg">{fmt.initials(me?.name)}</div>
-              <div>
+              <div className="avatar-lg" style={me?.avatar ? { backgroundImage: `url(${me.avatar})`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : undefined}>
+                {!me?.avatar && fmt.initials(me?.name)}
+              </div>
+              <div style={{ flex: 1 }}>
                 <div className="name">{me?.name}</div>
                 <div className="email">{me?.email}</div>
                 <div style={{ marginTop: 6 }}>
                   <span className={"role-tag " + me?.role}>{me?.role?.toUpperCase()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Avatar upload */}
+            <div className="kv-row" style={{ alignItems: "center" }}>
+              <div className="k">รูปโปรไฟล์</div>
+              <div className="v">
+                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <label className="btn sm">
+                    <Icon name="upload" size={12}/> {me?.avatar ? "เปลี่ยนรูป" : "อัปโหลดรูป"}
+                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      if (f.size > 1.5 * 1024 * 1024) { alert("ไฟล์ใหญ่เกิน 1.5 MB — ใช้รูปขนาดเล็กลง"); e.target.value = ""; return; }
+                      const r = new FileReader();
+                      r.onload = () => { store.updateUser(me.id, { avatar: r.result }); };
+                      r.readAsDataURL(f);
+                      e.target.value = "";
+                    }}/>
+                  </label>
+                  {me?.avatar && (
+                    <button className="btn ghost sm" onClick={() => {
+                      if (confirm("ลบรูปโปรไฟล์?")) store.updateUser(me.id, { avatar: null });
+                    }}>
+                      <Icon name="trash" size={12}/> ลบรูป
+                    </button>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>
+                  PNG / JPG · แนะนำขนาด ≥ 200×200 px · ไม่เกิน 1.5 MB
                 </div>
               </div>
             </div>

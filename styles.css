@@ -96,13 +96,17 @@ input, textarea, select { font-family: inherit; color: inherit; }
   margin-bottom: 14px;
 }
 .sidebar-brand .logo {
-  width: 32px; height: 32px;
+  width: 36px; height: 36px;
   border-radius: 8px;
-  background: linear-gradient(135deg, var(--indigo), var(--pink));
+  background: transparent;
   display: grid; place-items: center;
-  font-weight: 700; color: #fff;
-  font-size: 13px;
-  letter-spacing: 0.5px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.sidebar-brand .logo img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: block;
 }
 .sidebar-brand .name { font-weight: 600; font-size: 15px; letter-spacing: 0.2px; }
 .sidebar-brand .sub { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
@@ -305,10 +309,17 @@ input, textarea, select { font-family: inherit; color: inherit; }
   font-weight: 600; letter-spacing: 0.5px;
 }
 .login-art .brand .logo {
-  width: 36px; height: 36px;
+  width: 44px; height: 44px;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--indigo), var(--pink));
-  display: grid; place-items: center; color: #fff; font-weight: 700;
+  background: transparent;
+  display: grid; place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.login-art .brand .logo img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: block;
 }
 .login-art .quote { font-size: 28px; line-height: 1.35; font-weight: 500; max-width: 460px; letter-spacing: -0.3px; }
 .login-art .quote em { color: var(--violet); font-style: normal; }

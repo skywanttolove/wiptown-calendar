@@ -61,7 +61,7 @@ function App() {
       <div className="app">
         <aside className="sidebar">
           <div className="sidebar-brand">
-            <div className="logo">W</div>
+            <div className="logo"><img src="assets/logo.png" alt="WIP TOWN"/></div>
             <div>
               <div className="name">WIP TOWN</div>
               <div className="sub">CALENDAR HUB</div>
@@ -98,7 +98,9 @@ function App() {
               <SyncStatus state={state}/>
             </div>
             <div className="user-chip" onClick={() => go("profile")}>
-              <div className="avatar">{fmt.initials(me.name)}</div>
+              <div className="avatar" style={me.avatar ? { backgroundImage: `url(${me.avatar})`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : undefined}>
+                {!me.avatar && fmt.initials(me.name)}
+              </div>
               <div className="meta" style={{ flex: 1, minWidth: 0 }}>
                 <div className="name">{me.name}</div>
                 <div className="role">{me.role}</div>

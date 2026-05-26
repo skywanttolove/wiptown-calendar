@@ -91,9 +91,9 @@ function LoginScreen() {
         <div className="hero" style={{ backgroundImage: `url(${state.heroImage})` }}></div>
         <div className="overlay">
           <div className="brand">
-            <div className="logo">W</div>
+            <div className="logo"><img src="assets/logo.png" alt="WIP TOWN"/></div>
             <div>
-              <div style={{ fontSize: 16 }}>WIP Town</div>
+              <div style={{ fontSize: 16 }}>WIP TOWN</div>
               <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", letterSpacing: 1.2 }}>CALENDAR HUB</div>
             </div>
           </div>
@@ -102,7 +102,7 @@ function LoginScreen() {
               ◆ INTERNAL TEAM PORTAL
             </div>
             <div className="quote">
-              ปฏิทินกลางของทีม WIP Town<br/>
+              ปฏิทินกลางของทีม WIP TOWN<br/>
               <em>โน้ตงาน · ติดตามสถานะ · แชร์ไฟล์</em><br/>
               ในที่เดียว
             </div>
