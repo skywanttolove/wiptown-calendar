@@ -6,6 +6,7 @@ function CalendarScreen() {
   const me = store.me();
   const isAdmin = me?.role === "admin";
   const today = new Date();
+  const [dragOverKey, setDragOverKey] = React.useState(null);
   const [view, setView] = React.useState(() => {
     if (window.__openDay) {
       const { y, m } = fmt.parseKey(window.__openDay);
@@ -33,6 +34,18 @@ function CalendarScreen() {
   const prev = () => setView(v => v.m === 0 ? { y: v.y-1, m: 11 } : { ...v, m: v.m-1 });
   const next = () => setView(v => v.m === 11 ? { y: v.y+1, m: 0 } : { ...v, m: v.m+1 });
   const toToday = () => setView({ y: today.getFullYear(), m: today.getMonth() });
+
+  // Tasks scheduled to each date (from side panel drag-drop)
+  const tasksByDate = React.useMemo(() => {
+    const map = {};
+    (state.sideTasks || []).forEach(t => {
+      if (t.scheduledOn) {
+        if (!map[t.scheduledOn]) map[t.scheduledOn] = [];
+        map[t.scheduledOn].push(t);
+      }
+    });
+    return map;
+  }, [state.sideTasks]);
 
   // Build grid (start Sunday)
   const firstDow = new Date(view.y, view.m, 1).getDay();
@@ -87,7 +100,8 @@ function CalendarScreen() {
         </div>
       </div>
 
-      <div className="cal-grid">
+      <div className="cal-layout">
+        <div className="cal-grid">
         {["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"].map(d => (
           <div key={d} className="dow-header">{d}</div>
         ))}
@@ -96,17 +110,41 @@ function CalendarScreen() {
           const isToday = !c.off && c.y === today.getFullYear() && c.m === today.getMonth() && c.d === today.getDate();
           const allNotes = state.notes[key] || [];
           const notes = allNotes.filter(n => activeCats.has(n.cat));
-          const visible = notes.slice(0, 3);
-          const more = notes.length - visible.length;
+          const scheduledTasks = tasksByDate[key] || [];
+          const visible = notes.slice(0, 3 - Math.min(scheduledTasks.length, 2));
+          const more = (notes.length - visible.length) + Math.max(0, scheduledTasks.length - 2);
           const images = allNotes.flatMap(n => n.images || []).filter(Boolean).slice(0, 4);
+          const isDragOver = dragOverKey === key;
           return (
-            <div key={i} className={"cal-day" + (c.off ? " off" : "") + (isToday ? " today" : "")}
-                 onClick={() => setOpenKey(key)}>
+            <div key={i}
+                 className={"cal-day" + (c.off ? " off" : "") + (isToday ? " today" : "") + (isDragOver ? " drag-over" : "")}
+                 onClick={() => setOpenKey(key)}
+                 onDragOver={(e) => { if (e.dataTransfer.types.includes("application/x-wt-task")) { e.preventDefault(); setDragOverKey(key); } }}
+                 onDragLeave={() => setDragOverKey(d => d === key ? null : d)}
+                 onDrop={(e) => {
+                   e.preventDefault();
+                   setDragOverKey(null);
+                   const taskId = e.dataTransfer.getData("application/x-wt-task");
+                   if (taskId) store.updateSideTask(taskId, { scheduledOn: key });
+                 }}>
               <div className="day-head">
                 <span className="day-num">{c.d}</span>
-                {notes.length > 0 && <span className="day-count">{notes.filter(n => n.done).length}/{notes.length}</span>}
+                {(notes.length + scheduledTasks.length) > 0 && (
+                  <span className="day-count">
+                    {notes.filter(n => n.done).length + scheduledTasks.filter(t => t.done).length}/{notes.length + scheduledTasks.length}
+                  </span>
+                )}
               </div>
               <div className="day-notes">
+                {scheduledTasks.slice(0, 2).map(t => {
+                  const o = (state.owners || []).find(x => x.id === t.owner);
+                  return (
+                    <div key={t.id} className={"cal-note task-pill" + (t.done ? " done" : "")} style={{ borderLeftColor: o?.color || "var(--violet)" }} title={t.title + (t.details ? "\n" + t.details : "")}>
+                      <Icon name="check" size={9} stroke={2.5} style={{ color: o?.color || "var(--violet)" }}/>
+                      {t.title}
+                    </div>
+                  );
+                })}
                 {visible.map(n => {
                   const cat = store.category(n.cat);
                   return (
@@ -130,6 +168,9 @@ function CalendarScreen() {
             </div>
           );
         })}
+        </div>
+
+        <SidePanel state={state}/>
       </div>
 
       {openKey && <DayDetail dateKey={openKey} onClose={() => setOpenKey(null)} />}
@@ -137,11 +178,395 @@ function CalendarScreen() {
   );
 }
 
+// ---------- Side Panel: Quick Notes + Task List ----------
+function SidePanel({ state }) {
+  const me = store.me();
+  const [tab, setTab] = React.useState("notes"); // notes | tasks
+  const notes = state.sideNotes || [];
+  const tasks = state.sideTasks || [];
+  const openTasks = tasks.filter(t => !t.done);
+  const doneTasks = tasks.filter(t => t.done);
+
+  return (
+    <aside className="side-panel-cal">
+      <div className="sp-head">
+        <button className={"sp-tab " + (tab === "notes" ? "active" : "")} onClick={() => setTab("notes")}>
+          <Icon name="edit" size={13}/> โน้ต
+          {notes.length > 0 && <span className="sp-count">{notes.length}</span>}
+        </button>
+        <button className={"sp-tab " + (tab === "tasks" ? "active" : "")} onClick={() => setTab("tasks")}>
+          <Icon name="check" size={13}/> ลิสต์งาน
+          {openTasks.length > 0 && <span className="sp-count">{openTasks.length}</span>}
+        </button>
+      </div>
+
+      {tab === "notes" && <SidePanelNotes notes={notes} me={me}/>}
+      {tab === "tasks" && <SidePanelTasks tasks={tasks} openTasks={openTasks} doneTasks={doneTasks} state={state} me={me}/>}
+    </aside>
+  );
+}
+
+function SidePanelNotes({ notes, me }) {
+  const [text, setText] = React.useState("");
+  const submit = () => {
+    if (!text.trim()) return;
+    store.addSideNote(text.trim());
+    setText("");
+  };
+  return (
+    <div className="sp-body">
+      <div className="sp-compose">
+        <textarea
+          className="textarea"
+          placeholder="โน้ตด่วน… (Ctrl/⌘+Enter เพื่อบันทึก)"
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}
+          style={{ minHeight: 70, fontSize: 13 }}
+        />
+        <button className="btn primary sm" onClick={submit} disabled={!text.trim()} style={{ marginTop: 8, width: "100%", justifyContent: "center" }}>
+          <Icon name="plus" size={12}/> เพิ่มโน้ต
+        </button>
+      </div>
+
+      <div className="sp-list">
+        {notes.length === 0 && (
+          <div className="empty" style={{ padding: 24, fontSize: 12 }}>ยังไม่มีโน้ต<br/>เพิ่มข้างบนเพื่อเริ่ม</div>
+        )}
+        {notes.map(n => {
+          const u = store.user(n.author);
+          return (
+            <div key={n.id} className="sticky-note">
+              <div className="sn-text">{n.text}</div>
+              <div className="sn-meta">
+                <span><span className="avatar-xs">{fmt.initials(u?.name)}</span>{u?.name?.split(" ")[0] || "?"}</span>
+                <span style={{ flex: 1 }}></span>
+                <span style={{ fontSize: 10, color: "var(--muted)" }}>{n.at?.slice(-5)}</span>
+                <button className="icon-btn" onClick={() => { if (confirm("ลบโน้ตนี้?")) store.removeSideNote(n.id); }} style={{ width: 22, height: 22 }}>
+                  <Icon name="trash" size={11}/>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SidePanelTasks({ tasks, openTasks, doneTasks, state, me }) {
+  const owners = state.owners || [];
+  const [adding, setAdding] = React.useState(false);
+  const [title, setTitle] = React.useState("");
+  const [details, setDetails] = React.useState("");
+  const [owner, setOwner] = React.useState(owners[0]?.id);
+  const [showOwnerForm, setShowOwnerForm] = React.useState(false);
+  const [newOwnerName, setNewOwnerName] = React.useState("");
+  const [newOwnerColor, setNewOwnerColor] = React.useState("#34d399");
+  const [manageMode, setManageMode] = React.useState(false);
+  const [editingOwner, setEditingOwner] = React.useState(null);
+
+  const palette = [
+    "#f87171", "#fb7185", "#ec4899", "#f0abfc", "#e879f9",
+    "#fb923c", "#f97316", "#fbbf24", "#f59e0b", "#facc15",
+    "#84cc16", "#34d399", "#10b981", "#22c55e", "#059669",
+    "#14b8a6", "#22d3ee", "#06b6d4", "#0ea5e9", "#38bdf8",
+    "#60a5fa", "#3b82f6", "#6366f1", "#4f46e5", "#818cf8",
+    "#a78bfa", "#8b5cf6", "#7c3aed", "#c084fc", "#d946ef",
+    "#a3a3a3", "#737373", "#a8a29e", "#92400e", "#1f2937",
+  ];
+
+  React.useEffect(() => {
+    if (!owner && owners[0]) setOwner(owners[0].id);
+  }, [owners, owner]);
+
+  const submit = () => {
+    if (!title.trim()) return;
+    store.addSideTask({ title: title.trim(), details: details.trim(), owner });
+    setTitle(""); setDetails(""); setAdding(false);
+  };
+
+  const addOwner = () => {
+    if (!newOwnerName.trim()) return;
+    store.addOwner({ name: newOwnerName.trim(), color: newOwnerColor });
+    setNewOwnerName(""); setShowOwnerForm(false);
+    // pick the new owner
+    setTimeout(() => {
+      const fresh = store.get().owners || [];
+      const last = fresh[fresh.length - 1];
+      if (last) setOwner(last.id);
+    }, 50);
+  };
+
+  return (
+    <div className="sp-body">
+      {!adding ? (
+        <button className="btn primary sm" onClick={() => setAdding(true)} style={{ width: "100%", justifyContent: "center", marginBottom: 10 }}>
+          <Icon name="plus" size={12}/> เพิ่มงานใหม่
+        </button>
+      ) : (
+        <div className="sp-compose task-compose">
+          <input className="input" placeholder="ชื่องาน" value={title} onChange={e => setTitle(e.target.value)} autoFocus style={{ fontSize: 13 }}/>
+          <textarea className="textarea" placeholder="รายละเอียด (ไม่บังคับ)" value={details} onChange={e => setDetails(e.target.value)} style={{ minHeight: 50, fontSize: 12, marginTop: 6 }}/>
+
+          <div className="row between" style={{ alignItems: "center", margin: "0 0 4px" }}>
+            <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.8 }}>
+              ผู้รับผิดชอบ
+            </span>
+            <button type="button" className={"manage-btn " + (manageMode ? "active" : "")} onClick={() => { setManageMode(m => !m); setEditingOwner(null); }}>
+              <Icon name="edit" size={10}/> {manageMode ? "เสร็จ" : "จัดการ"}
+            </button>
+          </div>
+          <div className="owner-chips">
+            {owners.map(o => (
+              <div key={o.id} className="owner-chip-wrap">
+                <button type="button"
+                  className={"owner-chip " + (owner === o.id && !manageMode ? "active" : "")}
+                  style={owner === o.id && !manageMode ? { background: o.color, borderColor: o.color, color: "#fff" } : { borderColor: o.color + "55", color: o.color }}
+                  onClick={() => manageMode ? setEditingOwner(editingOwner === o.id ? null : o.id) : setOwner(o.id)}>
+                  <span className="dot" style={{ background: owner === o.id && !manageMode ? "#fff" : o.color }}></span>{o.name}
+                  {manageMode && <Icon name="edit" size={9} style={{ marginLeft: 2 }}/>}
+                </button>
+              </div>
+            ))}
+            {!manageMode && (
+              <button type="button" className="owner-chip add" onClick={() => setShowOwnerForm(s => !s)}>
+                <Icon name="plus" size={10}/> เพิ่ม
+              </button>
+            )}
+          </div>
+
+          {/* Edit existing owner */}
+          {manageMode && editingOwner && (() => {
+            const o = owners.find(x => x.id === editingOwner);
+            if (!o) return null;
+            return <EditOwnerBox owner={o} palette={palette} onClose={() => setEditingOwner(null)}/>;
+          })()}
+
+          {showOwnerForm && (
+            <div className="add-owner-box">
+              <input className="input" placeholder="ชื่อผู้รับผิดชอบ" value={newOwnerName} onChange={e => setNewOwnerName(e.target.value)} style={{ fontSize: 12, padding: "6px 10px" }}/>
+              <div className="palette-grid" style={{ marginTop: 8, gridTemplateColumns: "repeat(7, 1fr)" }}>
+                {palette.map(p => (
+                  <button key={p} type="button" onClick={() => setNewOwnerColor(p)}
+                    title={p}
+                    className={"swatch " + (newOwnerColor === p ? "active" : "")}
+                    style={{ background: p }}/>
+                ))}
+              </div>
+              <div className="row" style={{ gap: 8, marginTop: 8, alignItems: "center" }}>
+                <label style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-2)", cursor: "pointer" }}>
+                  <input type="color" value={newOwnerColor} onChange={e => setNewOwnerColor(e.target.value)}
+                    style={{ width: 22, height: 22, border: "1.5px solid var(--border-2)", borderRadius: 6, padding: 0, cursor: "pointer", background: "transparent" }}/>
+                  เลือกสีเอง
+                </label>
+                <div style={{ flex: 1 }}></div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "2px 7px", background: "var(--surface-2)", borderRadius: 5, fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-2)" }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 3, background: newOwnerColor }}></div>
+                  {newOwnerColor.toUpperCase()}
+                </div>
+              </div>
+              <div className="row" style={{ gap: 6, marginTop: 8 }}>
+                <button className="btn ghost sm" style={{ flex: 1, justifyContent: "center" }} onClick={() => { setShowOwnerForm(false); setNewOwnerName(""); }}>ยกเลิก</button>
+                <button className="btn primary sm" style={{ flex: 1, justifyContent: "center" }} onClick={addOwner} disabled={!newOwnerName.trim()}>เพิ่ม</button>
+              </div>
+            </div>
+          )}
+
+          <div className="row" style={{ gap: 6, marginTop: 10 }}>
+            <button className="btn ghost sm" style={{ flex: 1, justifyContent: "center" }} onClick={() => { setAdding(false); setTitle(""); setDetails(""); }}>ยกเลิก</button>
+            <button className="btn primary sm" style={{ flex: 1, justifyContent: "center" }} onClick={submit} disabled={!title.trim()}>บันทึก</button>
+          </div>
+        </div>
+      )}
+
+      <div className="sp-list">
+        {tasks.length === 0 && (
+          <div className="empty" style={{ padding: 24, fontSize: 12 }}>ยังไม่มีงาน<br/>เพิ่มงานแรกข้างบน</div>
+        )}
+        {openTasks.map(t => <TaskRow key={t.id} task={t} owners={owners}/>)}
+        {doneTasks.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, color: "var(--muted)", margin: "10px 0 6px", textTransform: "uppercase", letterSpacing: 1 }}>
+              ✓ เสร็จแล้ว ({doneTasks.length})
+            </div>
+            {doneTasks.map(t => <TaskRow key={t.id} task={t} owners={owners}/>)}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EditOwnerBox({ owner, palette, onClose }) {
+  const [name, setName] = React.useState(owner.name);
+  const [color, setColor] = React.useState(owner.color);
+  const save = () => {
+    if (!name.trim()) return;
+    store.updateOwner(owner.id, { name: name.trim(), color });
+    onClose();
+  };
+  const del = () => {
+    if (confirm(`ลบผู้รับผิดชอบ "${owner.name}"?\n\nงานที่ถูกกำหนดให้คนนี้จะไม่ถูกลบ แต่จะไม่มีผู้รับผิดชอบ`)) {
+      store.removeOwner(owner.id);
+      onClose();
+    }
+  };
+  return (
+    <div className="add-owner-box">
+      <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6, letterSpacing: 0.5 }}>
+        ✏️ แก้ไข <strong style={{ color: "var(--text)" }}>{owner.name}</strong>
+      </div>
+      <input className="input" placeholder="ชื่อ" value={name} onChange={e => setName(e.target.value)} autoFocus style={{ fontSize: 12, padding: "6px 10px" }}/>
+      <div className="palette-grid" style={{ marginTop: 8, gridTemplateColumns: "repeat(7, 1fr)" }}>
+        {palette.map(p => (
+          <button key={p} type="button" onClick={() => setColor(p)}
+            title={p}
+            className={"swatch " + (color === p ? "active" : "")}
+            style={{ background: p }}/>
+        ))}
+      </div>
+      <div className="row" style={{ gap: 8, marginTop: 8, alignItems: "center" }}>
+        <label style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-2)", cursor: "pointer" }}>
+          <input type="color" value={color} onChange={e => setColor(e.target.value)}
+            style={{ width: 22, height: 22, border: "1.5px solid var(--border-2)", borderRadius: 6, padding: 0, cursor: "pointer", background: "transparent" }}/>
+          เลือกสีเอง
+        </label>
+        <div style={{ flex: 1 }}></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "2px 7px", background: "var(--surface-2)", borderRadius: 5, fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-2)" }}>
+          <div style={{ width: 10, height: 10, borderRadius: 3, background: color }}></div>
+          {color.toUpperCase()}
+        </div>
+      </div>
+      <div className="row" style={{ gap: 6, marginTop: 10 }}>
+        <button className="btn danger sm" style={{ justifyContent: "center" }} onClick={del}><Icon name="trash" size={11}/> ลบ</button>
+        <div style={{ flex: 1 }}></div>
+        <button className="btn ghost sm" onClick={onClose}>ยกเลิก</button>
+        <button className="btn primary sm" onClick={save} disabled={!name.trim()}><Icon name="check" size={11}/> บันทึก</button>
+      </div>
+    </div>
+  );
+}
+
+function TaskRow({ task, owners }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const owner = owners.find(o => o.id === task.owner);
+  const author = store.user(task.author);
+  const onDragStart = (e) => {
+    e.dataTransfer.setData("application/x-wt-task", task.id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+  return (
+    <div className={"task-row " + (task.done ? "done" : "") + (task.scheduledOn ? " scheduled" : "")}
+         draggable={!task.done}
+         onDragStart={onDragStart}
+         style={{ borderLeftColor: owner?.color || "var(--violet)" }}
+         title={task.scheduledOn ? "" : "ลากไปที่วันในปฏิทินเพื่อกำหนดวัน"}>
+      <div className="row" style={{ gap: 8, alignItems: "flex-start" }}>
+        <div className="task-grip" title="ลากไปวางในปฏิทิน">⋮⋮</div>
+        <div className={"checkbox " + (task.done ? "checked" : "")} onClick={() => store.updateSideTask(task.id, { done: !task.done })} style={{ marginTop: 1 }}>
+          {task.done && <Icon name="check" size={11} stroke={3}/>}
+        </div>
+        <div style={{ flex: 1, minWidth: 0, cursor: task.details ? "pointer" : "default" }} onClick={() => task.details && setExpanded(e => !e)}>
+          <div className="task-title">{task.title}</div>
+          <div className="task-meta">
+            {owner && (
+              <span className="badge" style={{ color: owner.color, background: owner.color + "22", borderColor: owner.color + "44" }}>
+                <span className="dot" style={{ background: owner.color }}></span>{owner.name}
+              </span>
+            )}
+            {task.scheduledOn && (
+              <span className="badge indigo" title="กำหนดวันแล้ว">
+                <Icon name="cal" size={9}/> {(() => { const {d,m} = fmt.parseKey(task.scheduledOn); return fmt.shortThai(d, m); })()}
+              </span>
+            )}
+            {author && <span className="avatar-xs" title={author.name}>{fmt.initials(author.name)}</span>}
+            {task.details && <span style={{ fontSize: 10, color: "var(--muted)" }}>{expanded ? "▾" : "▸"} รายละเอียด</span>}
+          </div>
+          {expanded && task.details && (
+            <div className="task-details">{task.details}</div>
+          )}
+        </div>
+        <div className="row" style={{ gap: 0 }}>
+          {task.scheduledOn && (
+            <button className="icon-btn" onClick={() => store.updateSideTask(task.id, { scheduledOn: null })} title="ยกเลิกการกำหนดวัน" style={{ width: 22, height: 22, opacity: 0.6 }}>
+              <Icon name="x" size={11}/>
+            </button>
+          )}
+          <button className="icon-btn" onClick={() => { if (confirm("ลบงานนี้?")) store.removeSideTask(task.id); }} style={{ width: 22, height: 22, opacity: 0.5 }}>
+            <Icon name="trash" size={11}/>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Day Detail ----------
+function ScheduledTaskItem({ task, state }) {
+  const t = task;
+  const o = (state.owners || []).find(x => x.id === t.owner);
+  const author = store.user(t.author);
+  const [expanded, setExpanded] = React.useState(false);
+  const [isOverflowing, setIsOverflowing] = React.useState(false);
+  const detailsRef = React.useRef(null);
+
+  // Measure: does the text actually overflow the collapsed box?
+  React.useLayoutEffect(() => {
+    if (!detailsRef.current || !t.details) return;
+    const el = detailsRef.current;
+    setIsOverflowing(el.scrollHeight > el.clientHeight + 1);
+  }, [t.details]);
+
+  const showCollapse = isOverflowing && !expanded;
+
+  return (
+    <div className={"note-item " + (t.done ? "done" : "")} style={{ borderLeft: `3px solid ${o?.color || "var(--violet)"}` }}>
+      <div className={"checkbox " + (t.done ? "checked" : "")} onClick={() => store.updateSideTask(t.id, { done: !t.done })}>
+        {t.done && <Icon name="check" size={12} stroke={3}/>}
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <p className="note-text" style={{ fontWeight: 500 }}>{t.title}</p>
+        <div className="note-meta">
+          {o && (
+            <span className="badge" style={{ color: o.color, background: o.color + "22", borderColor: o.color + "44" }}>
+              <span className="dot" style={{ background: o.color }}></span>{o.name}
+            </span>
+          )}
+          <span className="badge indigo" style={{ fontSize: 10 }}>📋 จากลิสต์งาน</span>
+          {author && (
+            <span className="author">
+              <span className="avatar-xs">{fmt.initials(author.name)}</span>
+              {author.name?.split(" ")[0]}
+            </span>
+          )}
+        </div>
+        {t.details && (
+          <div className={"task-details-box" + (expanded ? " expanded" : "")}>
+            <div ref={detailsRef} className="task-details-text">{t.details}</div>
+            {isOverflowing && !expanded && <div className="fade-bottom"></div>}
+            {isOverflowing && (
+              <button className="details-toggle" onClick={() => setExpanded(e => !e)}>
+                {expanded ? "▲ ย่อรายละเอียด" : "▼ ดูเพิ่มเติม"}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="row" style={{ gap: 2 }}>
+        <button className="icon-btn" title="ยกเลิกการกำหนดวัน" onClick={() => store.updateSideTask(t.id, { scheduledOn: null })}>
+          <Icon name="x" size={13}/>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DayDetail({ dateKey, onClose }) {
   const state = useStore();
   const me = store.me();
   const notes = state.notes[dateKey] || [];
+  const scheduledTasks = (state.sideTasks || []).filter(t => t.scheduledOn === dateKey);
   const done = notes.filter(n => n.done).length;
   const allImages = notes.flatMap(n => (n.images || []).map(src => ({ src, noteId: n.id })));
 
@@ -233,9 +658,23 @@ function DayDetail({ dateKey, onClose }) {
         <div className="modal-body">
           {tab === "notes" && (
             <>
-              {notes.length === 0 && (
+              {scheduledTasks.length > 0 && (
+                <div className="sched-tasks-section">
+                  <div className="row between" style={{ marginBottom: 8 }}>
+                    <h3 className="h-section" style={{ margin: 0, fontSize: 13 }}>
+                      <Icon name="check" size={13}/> งานที่กำหนดวันนี้ <span className="count">{scheduledTasks.length}</span>
+                    </h3>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {scheduledTasks.map(t => <ScheduledTaskItem key={t.id} task={t} state={state}/>)}
+                  </div>
+                  <div className="divider"></div>
+                </div>
+              )}
+              {notes.length === 0 && scheduledTasks.length === 0 && (
                 <div className="empty" style={{ padding: "20px 0" }}>
-                  ยังไม่มีโน้ตในวันนี้ — เพิ่มงานแรกได้เลย ↓
+                  ยังไม่มีงานหรือโน้ตในวันนี้<br/>
+                  <span style={{ fontSize: 11 }}>เพิ่มข้างล่าง หรือลากจากลิสต์งานในแผงด้านข้าง</span>
                 </div>
               )}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

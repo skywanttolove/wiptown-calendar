@@ -11,9 +11,9 @@
 // 5. Save this file & push. Sync will activate automatically.
 // =====================================================================
 const CLOUD = {
-  binId:  "6a0d0c036610dd3ae872cd45",   
-  apiKey: "$2a$10$8ll9pq4g1yxh4hxzJR29YuUaSROu/C/Ul6LYcjNEWctmLfZeMnXvG",   
-  };
+  binId:  "",   // ตัวอย่าง: "6638abc1234e5f001234abcd"
+  apiKey: "",   // ตัวอย่าง: "$2a$10$xxxxxxxxxxxxxxxxxxxxxxxx"
+};
 const CLOUD_ENABLED = !!(CLOUD.binId && CLOUD.apiKey);
 
 async function cloudLoad() {
@@ -91,16 +91,28 @@ const DEFAULT_STATE = () => ({
   users: SEED_USERS,
   pending: SEED_PENDING,
   categories: SEED_CATEGORIES,
+  owners: [
+    { id: "o-team", name: "ทีมรวม",  color: "#6366f1" },
+    { id: "o-dev",  name: "DEV",     color: "#34d399" },
+    { id: "o-art",  name: "กราฟิก",  color: "#f0abfc" },
+  ],
+  sideNotes: [],   // [{ id, text, at }]  — sticky notes
+  sideTasks: [],   // [{ id, title, details, owner, done, at }]
   announcements: SEED_ANNOUNCEMENTS,
-  notes: seedNotesForCurrentMonth(), // { "YYYY-MM-DD": [ {id, text, cat, done, author, at, images?} ] }
+  notes: seedNotesForCurrentMonth(),
   activity: SEED_ACTIVITY,
   heroImage: "assets/hero.png",
+  heroPresets: [
+    "assets/hero.png",
+    "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1600&q=80",
+    "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1600&q=80",
+  ],
   theme: "dark",
   sync: { status: "synced", lastSyncAt: new Date().toISOString(), repo: "wiptown/calendar-hub" },
 });
 
 // ---------- STORE ----------
-const STORAGE_KEY = "wiptown_calendar_v10";
+const STORAGE_KEY = "wiptown_calendar_v12";
 
 function loadState() {
   try {
@@ -258,6 +270,28 @@ const store = {
   addCategory(c) { store.set(s => ({ categories: [...s.categories, { id: "c-" + Date.now(), color: "#a78bfa", ...c }] })); store.markSyncing(); },
   removeCategory(id) { store.set(s => ({ categories: s.categories.filter(c => c.id !== id) })); store.markSyncing(); },
 
+  // Owners (ผู้รับผิดชอบ)
+  addOwner(o) { store.set(s => ({ owners: [...(s.owners || []), { id: "o-" + Date.now(), color: "#34d399", ...o }] })); store.markSyncing(); },
+  updateOwner(id, patch) { store.set(s => ({ owners: (s.owners || []).map(o => o.id === id ? { ...o, ...patch } : o) })); store.markSyncing(); },
+  removeOwner(id) { store.set(s => ({ owners: (s.owners || []).filter(o => o.id !== id) })); store.markSyncing(); },
+
+  // Side panel — Quick notes
+  addSideNote(text) {
+    const me = store.me();
+    store.set(s => ({ sideNotes: [{ id: "sn" + Date.now(), text, author: me?.id, at: nowFull() }, ...(s.sideNotes || [])] }));
+    store.markSyncing();
+  },
+  removeSideNote(id) { store.set(s => ({ sideNotes: (s.sideNotes || []).filter(n => n.id !== id) })); store.markSyncing(); },
+
+  // Side panel — Tasks
+  addSideTask(task) {
+    const me = store.me();
+    store.set(s => ({ sideTasks: [{ id: "st" + Date.now(), done: false, author: me?.id, at: nowFull(), ...task }, ...(s.sideTasks || [])] }));
+    store.markSyncing();
+  },
+  updateSideTask(id, patch) { store.set(s => ({ sideTasks: (s.sideTasks || []).map(t => t.id === id ? { ...t, ...patch } : t) })); store.markSyncing(); },
+  removeSideTask(id) { store.set(s => ({ sideTasks: (s.sideTasks || []).filter(t => t.id !== id) })); store.markSyncing(); },
+
   clearAllNotes() {
     const me = store.me();
     store.set({ notes: {} });
@@ -294,6 +328,15 @@ const store = {
     const me = store.me();
     store.set({ heroImage: url });
     store.log(me?.id, "เปลี่ยน Hero image", "ใหม่");
+    store.markSyncing();
+  },
+  addHeroPreset(url) {
+    if (!url) return;
+    store.set(s => ({ heroPresets: [...(s.heroPresets || []), url] }));
+    store.markSyncing();
+  },
+  removeHeroPreset(url) {
+    store.set(s => ({ heroPresets: (s.heroPresets || []).filter(p => p !== url) }));
     store.markSyncing();
   },
 
