@@ -59,10 +59,13 @@ function CalendarScreen() {
   for (let d = 1; d <= lastDay; d++) {
     cells.push({ off: false, d, y: view.y, m: view.m });
   }
+  // Trailing cells from NEXT month — count from 1 properly
+  let trailingDay = 1;
+  const trailingY = view.m === 11 ? view.y + 1 : view.y;
+  const trailingM = view.m === 11 ? 0 : view.m + 1;
   while (cells.length % 7) {
-    const last = cells[cells.length-1];
-    const nd = last.off || last.m !== view.m ? last.d + 1 : last.d + 1;
-    cells.push({ off: true, d: nd, y: view.m === 11 ? view.y + 1 : view.y, m: view.m === 11 ? 0 : view.m + 1 });
+    cells.push({ off: true, d: trailingDay, y: trailingY, m: trailingM });
+    trailingDay++;
     if (cells.length > 42) break;
   }
 
@@ -233,23 +236,133 @@ function SidePanelNotes({ notes, me }) {
         {notes.length === 0 && (
           <div className="empty" style={{ padding: 24, fontSize: 12 }}>ยังไม่มีโน้ต<br/>เพิ่มข้างบนเพื่อเริ่ม</div>
         )}
-        {notes.map(n => {
-          const u = store.user(n.author);
-          return (
-            <div key={n.id} className="sticky-note">
-              <div className="sn-text">{n.text}</div>
-              <div className="sn-meta">
-                <span><span className="avatar-xs">{fmt.initials(u?.name)}</span>{u?.name?.split(" ")[0] || "?"}</span>
-                <span style={{ flex: 1 }}></span>
-                <span style={{ fontSize: 10, color: "var(--muted)" }}>{n.at?.slice(-5)}</span>
-                <button className="icon-btn" onClick={() => { if (confirm("ลบโน้ตนี้?")) store.removeSideNote(n.id); }} style={{ width: 22, height: 22 }}>
-                  <Icon name="trash" size={11}/>
-                </button>
+        {notes.map(n => <StickyNote key={n.id} note={n}/>)}
+      </div>
+    </div>
+  );
+}
+
+function StickyNote({ note: n }) {
+  const state = useStore();
+  const u = store.user(n.author);
+  const replies = n.replies || [];
+  const owners = state.owners || [];
+  const isConfirmed = !!n.confirmedTaskId;
+  const confirmedOwner = isConfirmed ? owners.find(o => o.id === n.confirmedOwner) : null;
+
+  const [showReply, setShowReply] = React.useState(false);
+  const [text, setText] = React.useState("");
+  const [showOwnerPicker, setShowOwnerPicker] = React.useState(false);
+
+  const send = () => {
+    if (!text.trim()) return;
+    store.addSideNoteReply(n.id, text.trim());
+    setText("");
+  };
+
+  const onToggle = () => {
+    if (isConfirmed) {
+      if (confirm("ยกเลิกการยืนยัน? งานในลิสต์งานจะถูกลบ")) store.unconfirmSideNote(n.id);
+    } else {
+      setShowOwnerPicker(true);
+    }
+  };
+
+  const pick = (ownerId) => {
+    store.confirmSideNoteAsTask(n.id, ownerId);
+    setShowOwnerPicker(false);
+  };
+
+  return (
+    <div className={"sticky-note " + (isConfirmed ? "confirmed" : "")}>
+      <div className="row" style={{ gap: 8, alignItems: "flex-start" }}>
+        <div className={"checkbox " + (isConfirmed ? "checked" : "")} onClick={onToggle} title={isConfirmed ? "ยกเลิกการยืนยัน" : "ยืนยันเป็นงานในลิสต์งาน"} style={{ marginTop: 2 }}>
+          {isConfirmed && <Icon name="check" size={11} stroke={3}/>}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="sn-text">{n.text}</div>
+          <div className="sn-meta">
+            <span><span className="avatar-xs">{fmt.initials(u?.name)}</span>{u?.name?.split(" ")[0] || "?"}</span>
+            {isConfirmed && (
+              <span className="badge" style={confirmedOwner ? { color: confirmedOwner.color, background: confirmedOwner.color + "22", borderColor: confirmedOwner.color + "44" } : undefined}>
+                <Icon name="check" size={9}/> {confirmedOwner ? confirmedOwner.name : "ในลิสต์งาน"}
+              </span>
+            )}
+            <span style={{ flex: 1 }}></span>
+            <span style={{ fontSize: 10, color: "var(--muted)" }}>{n.at?.slice(-5)}</span>
+            <button className="icon-btn" onClick={() => setShowReply(s => !s)} style={{ width: 22, height: 22 }} title="ตอบกลับ">
+              💬{replies.length > 0 && <span style={{ fontSize: 9, marginLeft: 1 }}>{replies.length}</span>}
+            </button>
+            <button className="icon-btn" onClick={() => { if (confirm("ลบโน้ตนี้?")) store.removeSideNote(n.id); }} style={{ width: 22, height: 22 }}>
+              <Icon name="trash" size={11}/>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Owner picker popup — appears when user ticks the checkbox */}
+      {showOwnerPicker && (
+        <div className="owner-picker-popup" style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 8 }}>
+            ✓ <strong style={{ color: "var(--text)" }}>ยืนยันงาน</strong> — เลือกผู้รับผิดชอบ:
+          </div>
+          {owners.length === 0 && (
+            <div style={{ fontSize: 11, color: "var(--muted)", padding: 6, textAlign: "center" }}>
+              ยังไม่มีผู้รับผิดชอบ — เพิ่มในแท็บ "ลิสต์งาน" ก่อน
+            </div>
+          )}
+          <div className="row wrap" style={{ gap: 5 }}>
+            {owners.map(o => (
+              <button key={o.id} type="button" className="owner-chip"
+                style={{ borderColor: o.color + "55", color: o.color }}
+                onClick={() => pick(o.id)}>
+                <span className="dot" style={{ background: o.color }}></span>{o.name}
+              </button>
+            ))}
+            {owners.length > 0 && (
+              <button type="button" className="owner-chip" style={{ borderStyle: "dashed", color: "var(--muted)" }}
+                onClick={() => pick(null)}>
+                ไม่ระบุ
+              </button>
+            )}
+          </div>
+          <button className="btn ghost sm" style={{ marginTop: 8, width: "100%", justifyContent: "center" }} onClick={() => setShowOwnerPicker(false)}>ยกเลิก</button>
+        </div>
+      )}
+
+      {(replies.length > 0 || showReply) && (
+        <div className="sn-replies">
+          {replies.map(r => {
+            const ru = store.user(r.author);
+            return (
+              <div key={r.id} className="sn-reply">
+                <div className="sn-reply-head">
+                  <span className="avatar-xs">{fmt.initials(ru?.name)}</span>
+                  <strong>{ru?.name?.split(" ")[0] || "?"}</strong>
+                  <span style={{ flex: 1 }}></span>
+                  <span style={{ fontSize: 10, color: "var(--muted)" }}>{r.at?.slice(-5)}</span>
+                  <button className="icon-btn sn-reply-del" onClick={() => store.removeSideNoteReply(n.id, r.id)} title="ลบ">
+                    <Icon name="x" size={9}/>
+                  </button>
+                </div>
+                <div className="sn-reply-text">{r.text}</div>
+              </div>
+            );
+          })}
+          {showReply && (
+            <div className="sn-reply-compose">
+              <textarea className="textarea" placeholder="ตอบกลับ หรือเพิ่มรายละเอียด…&#10;Ctrl/⌘+Enter ส่ง"
+                value={text} onChange={e => setText(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(); }}
+                style={{ fontSize: 12, minHeight: 56 }} autoFocus/>
+              <div className="row" style={{ gap: 4, marginTop: 6, justifyContent: "flex-end" }}>
+                <button className="btn ghost sm" onClick={() => { setShowReply(false); setText(""); }}>ยกเลิก</button>
+                <button className="btn primary sm" onClick={send} disabled={!text.trim()}><Icon name="check" size={11}/> ส่ง</button>
               </div>
             </div>
-          );
-        })}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -450,11 +563,19 @@ function EditOwnerBox({ owner, palette, onClose }) {
 
 function TaskRow({ task, owners }) {
   const [expanded, setExpanded] = React.useState(false);
+  const [showReply, setShowReply] = React.useState(false);
+  const [replyText, setReplyText] = React.useState("");
   const owner = owners.find(o => o.id === task.owner);
   const author = store.user(task.author);
+  const replies = task.replies || [];
   const onDragStart = (e) => {
     e.dataTransfer.setData("application/x-wt-task", task.id);
     e.dataTransfer.effectAllowed = "move";
+  };
+  const sendReply = () => {
+    if (!replyText.trim()) return;
+    store.addSideTaskReply(task.id, replyText.trim());
+    setReplyText("");
   };
   return (
     <div className={"task-row " + (task.done ? "done" : "") + (task.scheduledOn ? " scheduled" : "")}
@@ -467,8 +588,8 @@ function TaskRow({ task, owners }) {
         <div className={"checkbox " + (task.done ? "checked" : "")} onClick={() => store.updateSideTask(task.id, { done: !task.done })} style={{ marginTop: 1 }}>
           {task.done && <Icon name="check" size={11} stroke={3}/>}
         </div>
-        <div style={{ flex: 1, minWidth: 0, cursor: task.details ? "pointer" : "default" }} onClick={() => task.details && setExpanded(e => !e)}>
-          <div className="task-title">{task.title}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="task-title" style={{ cursor: task.details ? "pointer" : "default" }} onClick={() => task.details && setExpanded(e => !e)}>{task.title}</div>
           <div className="task-meta">
             {owner && (
               <span className="badge" style={{ color: owner.color, background: owner.color + "22", borderColor: owner.color + "44" }}>
@@ -481,10 +602,47 @@ function TaskRow({ task, owners }) {
               </span>
             )}
             {author && <span className="avatar-xs" title={author.name}>{fmt.initials(author.name)}</span>}
-            {task.details && <span style={{ fontSize: 10, color: "var(--muted)" }}>{expanded ? "▾" : "▸"} รายละเอียด</span>}
+            {task.details && <button className="note-action-btn" style={{ padding: "2px 6px", fontSize: 10 }} onClick={() => setExpanded(e => !e)}>{expanded ? "▾ ย่อ" : "▸ รายละเอียด"}</button>}
+            <button className="note-action-btn" style={{ padding: "2px 6px", fontSize: 10 }} onClick={() => setShowReply(s => !s)}>
+              💬 {replies.length > 0 && <span style={{ fontWeight: 600 }}>{replies.length}</span>}
+            </button>
           </div>
           {expanded && task.details && (
             <div className="task-details">{task.details}</div>
+          )}
+
+          {(replies.length > 0 || showReply) && (
+            <div className="sn-replies" style={{ marginTop: 8 }}>
+              {replies.map(r => {
+                const ru = store.user(r.author);
+                return (
+                  <div key={r.id} className="sn-reply">
+                    <div className="sn-reply-head">
+                      <span className="avatar-xs">{fmt.initials(ru?.name)}</span>
+                      <strong>{ru?.name?.split(" ")[0] || "?"}</strong>
+                      <span style={{ flex: 1 }}></span>
+                      <span style={{ fontSize: 10, color: "var(--muted)" }}>{r.at?.slice(-5)}</span>
+                      <button className="icon-btn sn-reply-del" onClick={() => store.removeSideTaskReply(task.id, r.id)} title="ลบ">
+                        <Icon name="x" size={9}/>
+                      </button>
+                    </div>
+                    <div className="sn-reply-text">{r.text}</div>
+                  </div>
+                );
+              })}
+              {showReply && (
+                <div className="sn-reply-compose">
+                  <textarea className="textarea" placeholder="ตอบกลับ หรือเพิ่มรายละเอียด…&#10;Ctrl/⌘+Enter ส่ง"
+                    value={replyText} onChange={e => setReplyText(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) sendReply(); }}
+                    style={{ fontSize: 12, minHeight: 56 }} autoFocus/>
+                  <div className="row" style={{ gap: 4, marginTop: 6, justifyContent: "flex-end" }}>
+                    <button className="btn ghost sm" onClick={() => { setShowReply(false); setReplyText(""); }}>ยกเลิก</button>
+                    <button className="btn primary sm" onClick={sendReply} disabled={!replyText.trim()}><Icon name="check" size={11}/> ส่ง</button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
         <div className="row" style={{ gap: 0 }}>
@@ -503,6 +661,171 @@ function TaskRow({ task, owners }) {
 }
 
 // ---------- Day Detail ----------
+function NoteItem({ note: n, dateKey, state, openLightbox, onUpload }) {
+  const c = store.category(n.cat);
+  const author = store.user(n.author);
+  const replies = n.replies || [];
+  const owners = state.owners || [];
+  const isConfirmed = !!n.confirmedTaskId;
+  const confirmedTask = isConfirmed ? (state.sideTasks || []).find(t => t.id === n.confirmedTaskId) : null;
+  const confirmedOwner = confirmedTask ? owners.find(o => o.id === confirmedTask.owner) : null;
+
+  const [replyText, setReplyText] = React.useState("");
+  const [showReplyBox, setShowReplyBox] = React.useState(false);
+  const [showOwnerPicker, setShowOwnerPicker] = React.useState(false);
+
+  const sendReply = () => {
+    if (!replyText.trim()) return;
+    store.addNoteReply(dateKey, n.id, replyText.trim());
+    setReplyText("");
+  };
+
+  const confirmAsTask = (ownerId) => {
+    store.confirmNoteAsTask(dateKey, n.id, ownerId);
+    setShowOwnerPicker(false);
+  };
+
+  return (
+    <div className={"note-item " + (n.done ? "done" : "") + (isConfirmed ? " confirmed" : "")}>
+      <div className={"checkbox " + (n.done ? "checked" : "")} onClick={() => store.updateNote(dateKey, n.id, { done: !n.done })}>
+        {n.done && <Icon name="check" size={12} stroke={3}/>}
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <p className="note-text">{n.text}</p>
+        <div className="note-meta">
+          {c && <span className="badge" style={{ color: c.color, background: c.color + "22", borderColor: c.color + "55" }}>
+            <span className="dot" style={{ background: c.color }}></span>{c.name}
+          </span>}
+          {isConfirmed && confirmedOwner && (
+            <span className="badge" style={{ color: confirmedOwner.color, background: confirmedOwner.color + "22", borderColor: confirmedOwner.color + "44" }}>
+              <Icon name="check" size={9}/> {confirmedOwner.name}
+            </span>
+          )}
+          {isConfirmed && !confirmedOwner && <span className="badge green"><Icon name="check" size={9}/> ยืนยันแล้ว</span>}
+          {n.at && <span><Icon name="clock" size={10}/> {n.at}</span>}
+          <span className="author"><span className="avatar-xs">{fmt.initials(author?.name)}</span>{author?.name?.split(" ")[0] || "?"}</span>
+        </div>
+
+        {/* Images */}
+        {(n.images && n.images.length > 0) && (
+          <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
+            {n.images.map((src, i) =>
+              src === "placeholder"
+                ? <div key={i} style={{ width: 50, height: 50, borderRadius: 6, background: "linear-gradient(135deg, var(--indigo), var(--pink))" }}/>
+                : <img key={i} src={src} alt=""
+                       className="thumb-clickable"
+                       style={{ width: 50, height: 50, borderRadius: 6, objectFit: "cover", cursor: "zoom-in" }}
+                       onClick={() => openLightbox(n.images, src)}/>
+            )}
+            <label className="image-tile upload" style={{ width: 50, height: 50, aspectRatio: "auto" }}>
+              <input type="file" multiple accept="image/*" style={{ display: "none" }} onChange={(e) => onUpload(e, n.id)}/>
+              <Icon name="plus" size={16}/>
+            </label>
+          </div>
+        )}
+
+        {/* Action row */}
+        <div className="note-actions">
+          {!isConfirmed ? (
+            <button className="note-action-btn primary" onClick={() => setShowOwnerPicker(s => !s)} title="ยืนยันเป็นงานในลิสต์">
+              <Icon name="check" size={11}/> Confirm งาน
+            </button>
+          ) : (
+            <button className="note-action-btn green-active" onClick={() => { if (confirm("ยกเลิกการยืนยัน? งานในลิสต์จะถูกลบ")) store.unconfirmNote(dateKey, n.id); }} title="ยกเลิกการยืนยัน">
+              <Icon name="check" size={11}/> ยืนยันแล้ว · ดูในลิสต์งาน
+            </button>
+          )}
+          <button className="note-action-btn" onClick={() => setShowReplyBox(s => !s)}>
+            💬 ตอบกลับ {replies.length > 0 && <span className="reply-count">{replies.length}</span>}
+          </button>
+        </div>
+
+        {/* Owner picker */}
+        {showOwnerPicker && (
+          <div className="owner-picker-popup">
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>เลือกผู้รับผิดชอบสำหรับงานนี้:</div>
+            {owners.length === 0 && (
+              <div style={{ fontSize: 12, color: "var(--muted)", padding: 8, textAlign: "center" }}>
+                ยังไม่มีผู้รับผิดชอบ — เพิ่มในแผงด้านขวา → ลิสต์งาน → "+ เพิ่มงานใหม่"
+              </div>
+            )}
+            <div className="row wrap" style={{ gap: 6 }}>
+              {owners.map(o => (
+                <button key={o.id} type="button"
+                  className="owner-chip"
+                  style={{ borderColor: o.color + "55", color: o.color }}
+                  onClick={() => confirmAsTask(o.id)}>
+                  <span className="dot" style={{ background: o.color }}></span>{o.name}
+                </button>
+              ))}
+              {owners.length > 0 && (
+                <button type="button" className="owner-chip" style={{ borderStyle: "dashed", color: "var(--muted)" }}
+                  onClick={() => confirmAsTask(null)}>
+                  ไม่ระบุ
+                </button>
+              )}
+            </div>
+            <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => setShowOwnerPicker(false)}>ยกเลิก</button>
+          </div>
+        )}
+
+        {/* Replies */}
+        {(replies.length > 0 || showReplyBox) && (
+          <div className="replies-section">
+            {replies.map(r => {
+              const ru = store.user(r.author);
+              return (
+                <div key={r.id} className="reply-item">
+                  <div className="avatar-xs">{fmt.initials(ru?.name)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="reply-head">
+                      <strong>{ru?.name?.split(" ")[0] || "?"}</strong>
+                      <span className="reply-time">{r.at?.slice(-5)}</span>
+                    </div>
+                    <div className="reply-text">{r.text}</div>
+                  </div>
+                  <button className="icon-btn reply-del" onClick={() => store.removeNoteReply(dateKey, n.id, r.id)} title="ลบ">
+                    <Icon name="x" size={10}/>
+                  </button>
+                </div>
+              );
+            })}
+            {showReplyBox && (
+              <div className="reply-compose">
+                <textarea className="textarea" placeholder="ตอบกลับ หรือเพิ่มรายละเอียด…&#10;(Enter ขึ้นบรรทัดใหม่ · Ctrl/⌘+Enter เพื่อส่ง)"
+                       value={replyText}
+                       onChange={e => setReplyText(e.target.value)}
+                       onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) sendReply(); }}
+                       style={{ fontSize: 13, minHeight: 70, flex: 1 }} autoFocus/>
+                <div className="row" style={{ flexDirection: "column", gap: 4 }}>
+                  <button className="btn primary sm" onClick={sendReply} disabled={!replyText.trim()} title="Ctrl/⌘+Enter">
+                    <Icon name="check" size={11}/> ส่ง
+                  </button>
+                  <button className="btn ghost sm" onClick={() => { setShowReplyBox(false); setReplyText(""); }}>
+                    ยกเลิก
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="row" style={{ gap: 2 }}>
+        {(!n.images || n.images.length === 0) && (
+          <label className="icon-btn" title="แนบรูป">
+            <input type="file" multiple accept="image/*" style={{ display: "none" }} onChange={(e) => onUpload(e, n.id)}/>
+            <Icon name="img" size={14}/>
+          </label>
+        )}
+        <button className="icon-btn" title="ลบ" onClick={() => { if (confirm("ลบโน้ตนี้?")) store.removeNote(dateKey, n.id); }}>
+          <Icon name="trash" size={14}/>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ScheduledTaskItem({ task, state }) {
   const t = task;
   const o = (state.owners || []).find(x => x.id === t.owner);
@@ -678,54 +1001,10 @@ function DayDetail({ dateKey, onClose }) {
                 </div>
               )}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {notes.map(n => {
-                  const c = store.category(n.cat);
-                  const author = store.user(n.author);
-                  return (
-                    <div key={n.id} className={"note-item " + (n.done ? "done" : "")}>
-                      <div className={"checkbox " + (n.done ? "checked" : "")} onClick={() => store.updateNote(dateKey, n.id, { done: !n.done })}>
-                        {n.done && <Icon name="check" size={12} stroke={3}/>}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <p className="note-text">{n.text}</p>
-                        <div className="note-meta">
-                          {c && <span className="badge" style={{ color: c.color, background: c.color + "22", borderColor: c.color + "55" }}>
-                            <span className="dot" style={{ background: c.color }}></span>{c.name}
-                          </span>}
-                          {n.at && <span><Icon name="clock" size={10}/> {n.at}</span>}
-                          <span className="author"><span className="avatar-xs">{fmt.initials(author?.name)}</span>{author?.name?.split(" ")[0] || "?"}</span>
-                        </div>
-                        {(n.images && n.images.length > 0) && (
-                          <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
-                            {n.images.map((src, i) =>
-                              src === "placeholder"
-                                ? <div key={i} style={{ width: 50, height: 50, borderRadius: 6, background: "linear-gradient(135deg, var(--indigo), var(--pink))" }}/>
-                                : <img key={i} src={src} alt=""
-                                       className="thumb-clickable"
-                                       style={{ width: 50, height: 50, borderRadius: 6, objectFit: "cover", cursor: "zoom-in" }}
-                                       onClick={() => openLightbox(n.images, src)}/>
-                            )}
-                            <label className="image-tile upload" style={{ width: 50, height: 50, aspectRatio: "auto" }}>
-                              <input type="file" multiple accept="image/*" style={{ display: "none" }} onChange={(e) => onUpload(e, n.id)}/>
-                              <Icon name="plus" size={16}/>
-                            </label>
-                          </div>
-                        )}
-                      </div>
-                      <div className="row" style={{ gap: 2 }}>
-                        {(!n.images || n.images.length === 0) && (
-                          <label className="icon-btn" title="แนบรูป">
-                            <input type="file" multiple accept="image/*" style={{ display: "none" }} onChange={(e) => onUpload(e, n.id)}/>
-                            <Icon name="img" size={14}/>
-                          </label>
-                        )}
-                        <button className="icon-btn" title="ลบ" onClick={() => { if (confirm("ลบโน้ตนี้?")) store.removeNote(dateKey, n.id); }}>
-                          <Icon name="trash" size={14}/>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                {notes.map(n => (
+                  <NoteItem key={n.id} note={n} dateKey={dateKey} state={state}
+                    openLightbox={openLightbox} onUpload={onUpload}/>
+                ))}
               </div>
 
               <div className="note-add">

@@ -1009,6 +1009,167 @@ input, textarea, select { font-family: inherit; color: inherit; }
 }
 .cat-task-meta .author { display: flex; align-items: center; gap: 4px; }
 
+/* Note actions (Confirm + Reply) */
+.note-item.confirmed {
+  background: linear-gradient(180deg, rgba(52,211,153,0.06), transparent 70%);
+  border-color: rgba(52,211,153,0.25);
+}
+.note-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.note-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 120ms;
+}
+.note-action-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border-2);
+}
+.note-action-btn.primary {
+  color: var(--indigo-2);
+  border-color: rgba(99,102,241,0.4);
+  background: rgba(99,102,241,0.08);
+}
+.note-action-btn.primary:hover {
+  background: var(--indigo);
+  color: #fff;
+  border-color: var(--indigo);
+}
+.note-action-btn.green-active {
+  color: var(--green);
+  border-color: rgba(52,211,153,0.4);
+  background: rgba(52,211,153,0.08);
+}
+.note-action-btn.green-active:hover {
+  background: rgba(52,211,153,0.16);
+}
+.reply-count {
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  margin-left: 2px;
+  font-weight: 600;
+}
+
+/* Owner picker popup (inside note) */
+.owner-picker-popup {
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+}
+
+/* Replies */
+.replies-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reply-item {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--bg-2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  position: relative;
+}
+.reply-item .avatar-xs { margin-top: 2px; }
+.reply-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-2);
+  margin-bottom: 2px;
+}
+.reply-head strong { color: var(--text); font-weight: 600; }
+.reply-time { color: var(--muted); }
+.reply-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.reply-del { width: 20px; height: 20px; opacity: 0; transition: opacity 120ms; }
+.reply-item:hover .reply-del { opacity: 0.6; }
+.reply-del:hover { opacity: 1 !important; }
+
+.reply-compose {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.reply-compose .input,
+.reply-compose .textarea { flex: 1; }
+.reply-compose .textarea {
+  resize: vertical;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.sticky-note.confirmed {
+  background: linear-gradient(180deg, rgba(52,211,153,0.10), rgba(52,211,153,0.04));
+  border-color: rgba(52,211,153,0.30);
+}
+
+/* Replies inside side panel (sticky notes + tasks) */
+.sn-replies {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255,255,255,0.08);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.sn-reply {
+  background: rgba(8,8,15,0.35);
+  border-radius: 6px;
+  padding: 6px 8px;
+  position: relative;
+}
+.sn-reply-head {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px;
+  color: var(--text-2);
+  margin-bottom: 2px;
+}
+.sn-reply-head strong { color: var(--text); font-weight: 600; font-size: 11px; }
+.sn-reply-text {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.sn-reply-del { width: 18px; height: 18px; opacity: 0; }
+.sn-reply:hover .sn-reply-del { opacity: 0.6; }
+.sn-reply-del:hover { opacity: 1 !important; }
+.sn-reply-compose {
+  background: var(--bg-2);
+  border-radius: 6px;
+  padding: 8px;
+}
+
 /* Drag handle + drag-and-drop visuals */
 .task-grip {
   font-size: 11px;

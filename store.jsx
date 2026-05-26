@@ -247,6 +247,70 @@ const store = {
     store.markSyncing();
   },
 
+  // Note replies (comments)
+  addNoteReply(dateKey, noteId, text) {
+    const me = store.me();
+    const next = { ..._state.notes };
+    next[dateKey] = (next[dateKey] || []).map(n =>
+      n.id === noteId
+        ? { ...n, replies: [...(n.replies || []), { id: "r" + Date.now(), text, author: me?.id, at: nowFull() }] }
+        : n
+    );
+    store.set({ notes: next });
+    store.log(me?.id, "ตอบกลับโน้ต", text.slice(0, 60), { dateKey, kind: "reply", noteId });
+    store.markSyncing();
+  },
+  removeNoteReply(dateKey, noteId, replyId) {
+    const next = { ..._state.notes };
+    next[dateKey] = (next[dateKey] || []).map(n =>
+      n.id === noteId ? { ...n, replies: (n.replies || []).filter(r => r.id !== replyId) } : n
+    );
+    store.set({ notes: next });
+    store.markSyncing();
+  },
+
+  // Confirm a note as a task — creates a sideTask scheduled to this date
+  confirmNoteAsTask(dateKey, noteId, ownerId) {
+    const note = (_state.notes[dateKey] || []).find(n => n.id === noteId);
+    if (!note) return;
+    const me = store.me();
+    const newTaskId = "st" + Date.now();
+    const newTask = {
+      id: newTaskId,
+      title: note.text,
+      details: (note.replies || []).map(r => {
+        const u = _state.users.find(x => x.id === r.author);
+        return `${u?.name?.split(" ")[0] || "?"}: ${r.text}`;
+      }).join("\n"),
+      owner: ownerId || null,
+      done: !!note.done,
+      author: me?.id,
+      at: nowFull(),
+      scheduledOn: dateKey,
+      fromNote: noteId,
+    };
+    const next = { ..._state.notes };
+    next[dateKey] = (next[dateKey] || []).map(n =>
+      n.id === noteId ? { ...n, confirmedTaskId: newTaskId, confirmedOwner: ownerId } : n
+    );
+    store.set(s => ({ notes: next, sideTasks: [newTask, ...(s.sideTasks || [])] }));
+    store.log(me?.id, "ยืนยันโน้ตเป็นงาน", note.text, { dateKey, kind: "confirm", noteId });
+    store.markSyncing();
+  },
+  unconfirmNote(dateKey, noteId) {
+    const note = (_state.notes[dateKey] || []).find(n => n.id === noteId);
+    if (!note?.confirmedTaskId) return;
+    const next = { ..._state.notes };
+    next[dateKey] = (next[dateKey] || []).map(n =>
+      n.id === noteId ? { ...n, confirmedTaskId: null, confirmedOwner: null } : n
+    );
+    store.set(s => ({
+      notes: next,
+      sideTasks: (s.sideTasks || []).filter(t => t.id !== note.confirmedTaskId)
+    }));
+    store.markSyncing();
+  },
+
   // Announcements
   addAnnouncement(a) {
     const me = store.me();
@@ -282,6 +346,64 @@ const store = {
     store.markSyncing();
   },
   removeSideNote(id) { store.set(s => ({ sideNotes: (s.sideNotes || []).filter(n => n.id !== id) })); store.markSyncing(); },
+  addSideNoteReply(noteId, text) {
+    const me = store.me();
+    store.set(s => ({
+      sideNotes: (s.sideNotes || []).map(n =>
+        n.id === noteId ? { ...n, replies: [...(n.replies || []), { id: "r" + Date.now(), text, author: me?.id, at: nowFull() }] } : n
+      )
+    }));
+    store.markSyncing();
+  },
+  removeSideNoteReply(noteId, replyId) {
+    store.set(s => ({
+      sideNotes: (s.sideNotes || []).map(n =>
+        n.id === noteId ? { ...n, replies: (n.replies || []).filter(r => r.id !== replyId) } : n
+      )
+    }));
+    store.markSyncing();
+  },
+  // Convert a sticky note into a task in the side-panel task list
+  confirmSideNoteAsTask(noteId, ownerId) {
+    const note = (_state.sideNotes || []).find(n => n.id === noteId);
+    if (!note) return;
+    const me = store.me();
+    const newTaskId = "st" + Date.now();
+    const newTask = {
+      id: newTaskId,
+      title: note.text.split("\n")[0].slice(0, 80),
+      details: note.text.split("\n").slice(1).join("\n") + (note.replies?.length ? "\n\n" + note.replies.map(r => {
+        const u = _state.users.find(x => x.id === r.author);
+        return `${u?.name?.split(" ")[0] || "?"}: ${r.text}`;
+      }).join("\n") : ""),
+      owner: ownerId || null,
+      done: false,
+      author: me?.id,
+      at: nowFull(),
+      scheduledOn: null,
+      fromSideNote: noteId,
+      replies: note.replies || [],
+    };
+    store.set(s => ({
+      sideNotes: (s.sideNotes || []).map(n =>
+        n.id === noteId ? { ...n, confirmedTaskId: newTaskId, confirmedOwner: ownerId } : n
+      ),
+      sideTasks: [newTask, ...(s.sideTasks || [])],
+    }));
+    store.log(me?.id, "ยืนยันโน้ตเป็นลิสต์งาน", note.text.slice(0, 60));
+    store.markSyncing();
+  },
+  unconfirmSideNote(noteId) {
+    const note = (_state.sideNotes || []).find(n => n.id === noteId);
+    if (!note?.confirmedTaskId) return;
+    store.set(s => ({
+      sideNotes: (s.sideNotes || []).map(n =>
+        n.id === noteId ? { ...n, confirmedTaskId: null, confirmedOwner: null } : n
+      ),
+      sideTasks: (s.sideTasks || []).filter(t => t.id !== note.confirmedTaskId),
+    }));
+    store.markSyncing();
+  },
 
   // Side panel — Tasks
   addSideTask(task) {
@@ -291,6 +413,23 @@ const store = {
   },
   updateSideTask(id, patch) { store.set(s => ({ sideTasks: (s.sideTasks || []).map(t => t.id === id ? { ...t, ...patch } : t) })); store.markSyncing(); },
   removeSideTask(id) { store.set(s => ({ sideTasks: (s.sideTasks || []).filter(t => t.id !== id) })); store.markSyncing(); },
+  addSideTaskReply(taskId, text) {
+    const me = store.me();
+    store.set(s => ({
+      sideTasks: (s.sideTasks || []).map(t =>
+        t.id === taskId ? { ...t, replies: [...(t.replies || []), { id: "r" + Date.now(), text, author: me?.id, at: nowFull() }] } : t
+      )
+    }));
+    store.markSyncing();
+  },
+  removeSideTaskReply(taskId, replyId) {
+    store.set(s => ({
+      sideTasks: (s.sideTasks || []).map(t =>
+        t.id === taskId ? { ...t, replies: (t.replies || []).filter(r => r.id !== replyId) } : t
+      )
+    }));
+    store.markSyncing();
+  },
 
   clearAllNotes() {
     const me = store.me();
