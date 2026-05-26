@@ -112,7 +112,7 @@ const DEFAULT_STATE = () => ({
 });
 
 // ---------- STORE ----------
-const STORAGE_KEY = "wiptown_calendar_v12";
+const STORAGE_KEY = "wiptown_calendar_v13";
 
 function loadState() {
   try {
@@ -270,10 +270,11 @@ const store = {
   },
 
   // Confirm a note as a task — creates a sideTask scheduled to this date
-  confirmNoteAsTask(dateKey, noteId, ownerId) {
+  confirmNoteAsTask(dateKey, noteId, ownerIds) {
     const note = (_state.notes[dateKey] || []).find(n => n.id === noteId);
     if (!note) return;
     const me = store.me();
+    const ownersArr = Array.isArray(ownerIds) ? ownerIds.filter(Boolean) : (ownerIds ? [ownerIds] : []);
     const newTaskId = "st" + Date.now();
     const newTask = {
       id: newTaskId,
@@ -282,7 +283,7 @@ const store = {
         const u = _state.users.find(x => x.id === r.author);
         return `${u?.name?.split(" ")[0] || "?"}: ${r.text}`;
       }).join("\n"),
-      owner: ownerId || null,
+      owners: ownersArr,
       done: !!note.done,
       author: me?.id,
       at: nowFull(),
@@ -291,7 +292,7 @@ const store = {
     };
     const next = { ..._state.notes };
     next[dateKey] = (next[dateKey] || []).map(n =>
-      n.id === noteId ? { ...n, confirmedTaskId: newTaskId, confirmedOwner: ownerId } : n
+      n.id === noteId ? { ...n, confirmedTaskId: newTaskId, confirmedOwners: ownersArr } : n
     );
     store.set(s => ({ notes: next, sideTasks: [newTask, ...(s.sideTasks || [])] }));
     store.log(me?.id, "ยืนยันโน้ตเป็นงาน", note.text, { dateKey, kind: "confirm", noteId });
@@ -364,10 +365,11 @@ const store = {
     store.markSyncing();
   },
   // Convert a sticky note into a task in the side-panel task list
-  confirmSideNoteAsTask(noteId, ownerId) {
+  confirmSideNoteAsTask(noteId, ownerIds) {
     const note = (_state.sideNotes || []).find(n => n.id === noteId);
     if (!note) return;
     const me = store.me();
+    const ownersArr = Array.isArray(ownerIds) ? ownerIds.filter(Boolean) : (ownerIds ? [ownerIds] : []);
     const newTaskId = "st" + Date.now();
     const newTask = {
       id: newTaskId,
@@ -376,7 +378,7 @@ const store = {
         const u = _state.users.find(x => x.id === r.author);
         return `${u?.name?.split(" ")[0] || "?"}: ${r.text}`;
       }).join("\n") : ""),
-      owner: ownerId || null,
+      owners: ownersArr,
       done: false,
       author: me?.id,
       at: nowFull(),
@@ -386,7 +388,7 @@ const store = {
     };
     store.set(s => ({
       sideNotes: (s.sideNotes || []).map(n =>
-        n.id === noteId ? { ...n, confirmedTaskId: newTaskId, confirmedOwner: ownerId } : n
+        n.id === noteId ? { ...n, confirmedTaskId: newTaskId, confirmedOwners: ownersArr } : n
       ),
       sideTasks: [newTask, ...(s.sideTasks || [])],
     }));
@@ -512,6 +514,13 @@ function useStore() {
 }
 
 // ---------- HELPERS ----------
+// Get owner ids from a task — supports legacy single `owner` and new `owners` array
+function getTaskOwners(task) {
+  if (Array.isArray(task?.owners)) return task.owners;
+  if (task?.owner) return [task.owner];
+  return [];
+}
+
 function nowHM() {
   const d = new Date();
   return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
@@ -599,7 +608,7 @@ function Icon({ name, size = 16, stroke = 2, className = "", style = {} }) {
 }
 
 // ---------- EXPORT ----------
-Object.assign(window, { store, useStore, Icon, fmt });
+Object.assign(window, { store, useStore, Icon, fmt, getTaskOwners });
 
 // On startup: try to pull from cloud (overrides local seed if cloud has data)
 if (CLOUD_ENABLED) {

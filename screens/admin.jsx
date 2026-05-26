@@ -499,14 +499,21 @@ function TasksByOwnerAdmin({ state }) {
   const allTasks = state.sideTasks || [];
   const owners = state.owners || [];
 
-  // Group by owner
+  // Group by owner — a task with multiple owners appears in each owner's group
   const grouped = React.useMemo(() => {
     const map = {};
     owners.forEach(o => { map[o.id] = []; });
     map._noowner = [];
     allTasks.forEach(t => {
-      if (map[t.owner]) map[t.owner].push(t);
-      else map._noowner.push(t);
+      const ids = getTaskOwners(t);
+      if (ids.length === 0) {
+        map._noowner.push(t);
+      } else {
+        ids.forEach(id => {
+          if (map[id]) map[id].push(t);
+          else map._noowner.push(t);
+        });
+      }
     });
     return map;
   }, [allTasks, owners]);

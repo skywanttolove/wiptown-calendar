@@ -140,7 +140,8 @@ function CalendarScreen() {
               </div>
               <div className="day-notes">
                 {scheduledTasks.slice(0, 2).map(t => {
-                  const o = (state.owners || []).find(x => x.id === t.owner);
+                  const ownerIds = getTaskOwners(t);
+                  const o = (state.owners || []).find(x => x.id === ownerIds[0]);
                   return (
                     <div key={t.id} className={"cal-note task-pill" + (t.done ? " done" : "")} style={{ borderLeftColor: o?.color || "var(--violet)" }} title={t.title + (t.details ? "\n" + t.details : "")}>
                       <Icon name="check" size={9} stroke={2.5} style={{ color: o?.color || "var(--violet)" }}/>
@@ -248,11 +249,17 @@ function StickyNote({ note: n }) {
   const replies = n.replies || [];
   const owners = state.owners || [];
   const isConfirmed = !!n.confirmedTaskId;
-  const confirmedOwner = isConfirmed ? owners.find(o => o.id === n.confirmedOwner) : null;
+  const confirmedOwnerIds = Array.isArray(n.confirmedOwners) ? n.confirmedOwners : (n.confirmedOwner ? [n.confirmedOwner] : []);
+  const confirmedOwners = confirmedOwnerIds.map(id => owners.find(o => o.id === id)).filter(Boolean);
 
   const [showReply, setShowReply] = React.useState(false);
   const [text, setText] = React.useState("");
   const [showOwnerPicker, setShowOwnerPicker] = React.useState(false);
+  const [picked, setPicked] = React.useState([]);
+
+  const togglePick = (id) => {
+    setPicked(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  };
 
   const send = () => {
     if (!text.trim()) return;
@@ -268,9 +275,10 @@ function StickyNote({ note: n }) {
     }
   };
 
-  const pick = (ownerId) => {
-    store.confirmSideNoteAsTask(n.id, ownerId);
+  const confirmIt = () => {
+    store.confirmSideNoteAsTask(n.id, picked);
     setShowOwnerPicker(false);
+    setPicked([]);
   };
 
   return (
@@ -283,10 +291,13 @@ function StickyNote({ note: n }) {
           <div className="sn-text">{n.text}</div>
           <div className="sn-meta">
             <span><span className="avatar-xs">{fmt.initials(u?.name)}</span>{u?.name?.split(" ")[0] || "?"}</span>
-            {isConfirmed && (
-              <span className="badge" style={confirmedOwner ? { color: confirmedOwner.color, background: confirmedOwner.color + "22", borderColor: confirmedOwner.color + "44" } : undefined}>
-                <Icon name="check" size={9}/> {confirmedOwner ? confirmedOwner.name : "ในลิสต์งาน"}
+            {isConfirmed && confirmedOwners.length > 0 && confirmedOwners.map(co => (
+              <span key={co.id} className="badge" style={{ color: co.color, background: co.color + "22", borderColor: co.color + "44" }}>
+                <Icon name="check" size={9}/> {co.name}
               </span>
+            ))}
+            {isConfirmed && confirmedOwners.length === 0 && (
+              <span className="badge"><Icon name="check" size={9}/> ในลิสต์งาน</span>
             )}
             <span style={{ flex: 1 }}></span>
             <span style={{ fontSize: 10, color: "var(--muted)" }}>{n.at?.slice(-5)}</span>
@@ -304,7 +315,7 @@ function StickyNote({ note: n }) {
       {showOwnerPicker && (
         <div className="owner-picker-popup" style={{ marginTop: 10 }}>
           <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 8 }}>
-            ✓ <strong style={{ color: "var(--text)" }}>ยืนยันงาน</strong> — เลือกผู้รับผิดชอบ:
+            ✓ <strong style={{ color: "var(--text)" }}>ยืนยันงาน</strong> — เลือกผู้รับผิดชอบได้หลายคน:
           </div>
           {owners.length === 0 && (
             <div style={{ fontSize: 11, color: "var(--muted)", padding: 6, textAlign: "center" }}>
@@ -312,21 +323,25 @@ function StickyNote({ note: n }) {
             </div>
           )}
           <div className="row wrap" style={{ gap: 5 }}>
-            {owners.map(o => (
-              <button key={o.id} type="button" className="owner-chip"
-                style={{ borderColor: o.color + "55", color: o.color }}
-                onClick={() => pick(o.id)}>
-                <span className="dot" style={{ background: o.color }}></span>{o.name}
-              </button>
-            ))}
-            {owners.length > 0 && (
-              <button type="button" className="owner-chip" style={{ borderStyle: "dashed", color: "var(--muted)" }}
-                onClick={() => pick(null)}>
-                ไม่ระบุ
-              </button>
-            )}
+            {owners.map(o => {
+              const isSel = picked.includes(o.id);
+              return (
+                <button key={o.id} type="button"
+                  className={"owner-chip " + (isSel ? "active" : "")}
+                  style={isSel ? { background: o.color, borderColor: o.color, color: "#fff" } : { borderColor: o.color + "55", color: o.color }}
+                  onClick={() => togglePick(o.id)}>
+                  {isSel && <Icon name="check" size={9} stroke={3}/>}
+                  <span className="dot" style={{ background: isSel ? "#fff" : o.color }}></span>{o.name}
+                </button>
+              );
+            })}
           </div>
-          <button className="btn ghost sm" style={{ marginTop: 8, width: "100%", justifyContent: "center" }} onClick={() => setShowOwnerPicker(false)}>ยกเลิก</button>
+          <div className="row" style={{ gap: 6, marginTop: 10, justifyContent: "flex-end" }}>
+            <button className="btn ghost sm" onClick={() => { setShowOwnerPicker(false); setPicked([]); }}>ยกเลิก</button>
+            <button className="btn primary sm" onClick={confirmIt}>
+              <Icon name="check" size={11}/> ยืนยัน{picked.length > 0 ? ` (${picked.length})` : ""}
+            </button>
+          </div>
         </div>
       )}
 
@@ -372,7 +387,7 @@ function SidePanelTasks({ tasks, openTasks, doneTasks, state, me }) {
   const [adding, setAdding] = React.useState(false);
   const [title, setTitle] = React.useState("");
   const [details, setDetails] = React.useState("");
-  const [owner, setOwner] = React.useState(owners[0]?.id);
+  const [selectedOwners, setSelectedOwners] = React.useState([]);
   const [showOwnerForm, setShowOwnerForm] = React.useState(false);
   const [newOwnerName, setNewOwnerName] = React.useState("");
   const [newOwnerColor, setNewOwnerColor] = React.useState("#34d399");
@@ -390,24 +405,27 @@ function SidePanelTasks({ tasks, openTasks, doneTasks, state, me }) {
   ];
 
   React.useEffect(() => {
-    if (!owner && owners[0]) setOwner(owners[0].id);
-  }, [owners, owner]);
+    if (selectedOwners.length === 0 && owners[0]) setSelectedOwners([owners[0].id]);
+  }, [owners]); // eslint-disable-line
 
   const submit = () => {
     if (!title.trim()) return;
-    store.addSideTask({ title: title.trim(), details: details.trim(), owner });
+    store.addSideTask({ title: title.trim(), details: details.trim(), owners: selectedOwners });
     setTitle(""); setDetails(""); setAdding(false);
+  };
+
+  const toggleOwner = (id) => {
+    setSelectedOwners(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   const addOwner = () => {
     if (!newOwnerName.trim()) return;
     store.addOwner({ name: newOwnerName.trim(), color: newOwnerColor });
     setNewOwnerName(""); setShowOwnerForm(false);
-    // pick the new owner
     setTimeout(() => {
       const fresh = store.get().owners || [];
       const last = fresh[fresh.length - 1];
-      if (last) setOwner(last.id);
+      if (last) setSelectedOwners(prev => [...prev, last.id]);
     }, 50);
   };
 
@@ -424,24 +442,28 @@ function SidePanelTasks({ tasks, openTasks, doneTasks, state, me }) {
 
           <div className="row between" style={{ alignItems: "center", margin: "0 0 4px" }}>
             <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.8 }}>
-              ผู้รับผิดชอบ
+              ผู้รับผิดชอบ {selectedOwners.length > 0 && <span style={{ color: "var(--indigo-2)", marginLeft: 4 }}>({selectedOwners.length})</span>}
             </span>
             <button type="button" className={"manage-btn " + (manageMode ? "active" : "")} onClick={() => { setManageMode(m => !m); setEditingOwner(null); }}>
               <Icon name="edit" size={10}/> {manageMode ? "เสร็จ" : "จัดการ"}
             </button>
           </div>
           <div className="owner-chips">
-            {owners.map(o => (
-              <div key={o.id} className="owner-chip-wrap">
-                <button type="button"
-                  className={"owner-chip " + (owner === o.id && !manageMode ? "active" : "")}
-                  style={owner === o.id && !manageMode ? { background: o.color, borderColor: o.color, color: "#fff" } : { borderColor: o.color + "55", color: o.color }}
-                  onClick={() => manageMode ? setEditingOwner(editingOwner === o.id ? null : o.id) : setOwner(o.id)}>
-                  <span className="dot" style={{ background: owner === o.id && !manageMode ? "#fff" : o.color }}></span>{o.name}
-                  {manageMode && <Icon name="edit" size={9} style={{ marginLeft: 2 }}/>}
-                </button>
-              </div>
-            ))}
+            {owners.map(o => {
+              const isSelected = selectedOwners.includes(o.id);
+              return (
+                <div key={o.id} className="owner-chip-wrap">
+                  <button type="button"
+                    className={"owner-chip " + (isSelected && !manageMode ? "active" : "")}
+                    style={isSelected && !manageMode ? { background: o.color, borderColor: o.color, color: "#fff" } : { borderColor: o.color + "55", color: o.color }}
+                    onClick={() => manageMode ? setEditingOwner(editingOwner === o.id ? null : o.id) : toggleOwner(o.id)}>
+                    {isSelected && !manageMode && <Icon name="check" size={9} stroke={3}/>}
+                    <span className="dot" style={{ background: isSelected && !manageMode ? "#fff" : o.color }}></span>{o.name}
+                    {manageMode && <Icon name="edit" size={9} style={{ marginLeft: 2 }}/>}
+                  </button>
+                </div>
+              );
+            })}
             {!manageMode && (
               <button type="button" className="owner-chip add" onClick={() => setShowOwnerForm(s => !s)}>
                 <Icon name="plus" size={10}/> เพิ่ม
@@ -565,7 +587,9 @@ function TaskRow({ task, owners }) {
   const [expanded, setExpanded] = React.useState(false);
   const [showReply, setShowReply] = React.useState(false);
   const [replyText, setReplyText] = React.useState("");
-  const owner = owners.find(o => o.id === task.owner);
+  const taskOwnerIds = getTaskOwners(task);
+  const taskOwners = taskOwnerIds.map(id => owners.find(o => o.id === id)).filter(Boolean);
+  const firstColor = taskOwners[0]?.color || "var(--violet)";
   const author = store.user(task.author);
   const replies = task.replies || [];
   const onDragStart = (e) => {
@@ -581,7 +605,7 @@ function TaskRow({ task, owners }) {
     <div className={"task-row " + (task.done ? "done" : "") + (task.scheduledOn ? " scheduled" : "")}
          draggable={!task.done}
          onDragStart={onDragStart}
-         style={{ borderLeftColor: owner?.color || "var(--violet)" }}
+         style={{ borderLeftColor: firstColor }}
          title={task.scheduledOn ? "" : "ลากไปที่วันในปฏิทินเพื่อกำหนดวัน"}>
       <div className="row" style={{ gap: 8, alignItems: "flex-start" }}>
         <div className="task-grip" title="ลากไปวางในปฏิทิน">⋮⋮</div>
@@ -591,11 +615,11 @@ function TaskRow({ task, owners }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="task-title" style={{ cursor: task.details ? "pointer" : "default" }} onClick={() => task.details && setExpanded(e => !e)}>{task.title}</div>
           <div className="task-meta">
-            {owner && (
-              <span className="badge" style={{ color: owner.color, background: owner.color + "22", borderColor: owner.color + "44" }}>
-                <span className="dot" style={{ background: owner.color }}></span>{owner.name}
+            {taskOwners.map(o => (
+              <span key={o.id} className="badge" style={{ color: o.color, background: o.color + "22", borderColor: o.color + "44" }}>
+                <span className="dot" style={{ background: o.color }}></span>{o.name}
               </span>
-            )}
+            ))}
             {task.scheduledOn && (
               <span className="badge indigo" title="กำหนดวันแล้ว">
                 <Icon name="cal" size={9}/> {(() => { const {d,m} = fmt.parseKey(task.scheduledOn); return fmt.shortThai(d, m); })()}
@@ -668,11 +692,17 @@ function NoteItem({ note: n, dateKey, state, openLightbox, onUpload }) {
   const owners = state.owners || [];
   const isConfirmed = !!n.confirmedTaskId;
   const confirmedTask = isConfirmed ? (state.sideTasks || []).find(t => t.id === n.confirmedTaskId) : null;
-  const confirmedOwner = confirmedTask ? owners.find(o => o.id === confirmedTask.owner) : null;
+  const confirmedOwnerIds = confirmedTask ? getTaskOwners(confirmedTask) : [];
+  const confirmedOwners = confirmedOwnerIds.map(id => owners.find(o => o.id === id)).filter(Boolean);
 
   const [replyText, setReplyText] = React.useState("");
   const [showReplyBox, setShowReplyBox] = React.useState(false);
   const [showOwnerPicker, setShowOwnerPicker] = React.useState(false);
+  const [picked, setPicked] = React.useState([]);
+
+  const togglePick = (id) => {
+    setPicked(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  };
 
   const sendReply = () => {
     if (!replyText.trim()) return;
@@ -680,9 +710,10 @@ function NoteItem({ note: n, dateKey, state, openLightbox, onUpload }) {
     setReplyText("");
   };
 
-  const confirmAsTask = (ownerId) => {
-    store.confirmNoteAsTask(dateKey, n.id, ownerId);
+  const confirmAsTask = () => {
+    store.confirmNoteAsTask(dateKey, n.id, picked);
     setShowOwnerPicker(false);
+    setPicked([]);
   };
 
   return (
@@ -696,12 +727,12 @@ function NoteItem({ note: n, dateKey, state, openLightbox, onUpload }) {
           {c && <span className="badge" style={{ color: c.color, background: c.color + "22", borderColor: c.color + "55" }}>
             <span className="dot" style={{ background: c.color }}></span>{c.name}
           </span>}
-          {isConfirmed && confirmedOwner && (
-            <span className="badge" style={{ color: confirmedOwner.color, background: confirmedOwner.color + "22", borderColor: confirmedOwner.color + "44" }}>
-              <Icon name="check" size={9}/> {confirmedOwner.name}
+          {isConfirmed && confirmedOwners.length > 0 && confirmedOwners.map(co => (
+            <span key={co.id} className="badge" style={{ color: co.color, background: co.color + "22", borderColor: co.color + "44" }}>
+              <Icon name="check" size={9}/> {co.name}
             </span>
-          )}
-          {isConfirmed && !confirmedOwner && <span className="badge green"><Icon name="check" size={9}/> ยืนยันแล้ว</span>}
+          ))}
+          {isConfirmed && confirmedOwners.length === 0 && <span className="badge green"><Icon name="check" size={9}/> ยืนยันแล้ว</span>}
           {n.at && <span><Icon name="clock" size={10}/> {n.at}</span>}
           <span className="author"><span className="avatar-xs">{fmt.initials(author?.name)}</span>{author?.name?.split(" ")[0] || "?"}</span>
         </div>
@@ -743,29 +774,32 @@ function NoteItem({ note: n, dateKey, state, openLightbox, onUpload }) {
         {/* Owner picker */}
         {showOwnerPicker && (
           <div className="owner-picker-popup">
-            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>เลือกผู้รับผิดชอบสำหรับงานนี้:</div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>เลือกผู้รับผิดชอบได้หลายคน (ติ๊กเพื่อเลือก/ติ๊กซ้ำเพื่อยกเลิก):</div>
             {owners.length === 0 && (
               <div style={{ fontSize: 12, color: "var(--muted)", padding: 8, textAlign: "center" }}>
                 ยังไม่มีผู้รับผิดชอบ — เพิ่มในแผงด้านขวา → ลิสต์งาน → "+ เพิ่มงานใหม่"
               </div>
             )}
             <div className="row wrap" style={{ gap: 6 }}>
-              {owners.map(o => (
-                <button key={o.id} type="button"
-                  className="owner-chip"
-                  style={{ borderColor: o.color + "55", color: o.color }}
-                  onClick={() => confirmAsTask(o.id)}>
-                  <span className="dot" style={{ background: o.color }}></span>{o.name}
-                </button>
-              ))}
-              {owners.length > 0 && (
-                <button type="button" className="owner-chip" style={{ borderStyle: "dashed", color: "var(--muted)" }}
-                  onClick={() => confirmAsTask(null)}>
-                  ไม่ระบุ
-                </button>
-              )}
+              {owners.map(o => {
+                const isSel = picked.includes(o.id);
+                return (
+                  <button key={o.id} type="button"
+                    className={"owner-chip " + (isSel ? "active" : "")}
+                    style={isSel ? { background: o.color, borderColor: o.color, color: "#fff" } : { borderColor: o.color + "55", color: o.color }}
+                    onClick={() => togglePick(o.id)}>
+                    {isSel && <Icon name="check" size={9} stroke={3}/>}
+                    <span className="dot" style={{ background: isSel ? "#fff" : o.color }}></span>{o.name}
+                  </button>
+                );
+              })}
             </div>
-            <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => setShowOwnerPicker(false)}>ยกเลิก</button>
+            <div className="row" style={{ gap: 6, marginTop: 10, justifyContent: "flex-end" }}>
+              <button className="btn ghost sm" onClick={() => { setShowOwnerPicker(false); setPicked([]); }}>ยกเลิก</button>
+              <button className="btn primary sm" onClick={confirmAsTask}>
+                <Icon name="check" size={11}/> ยืนยัน{picked.length > 0 ? ` (${picked.length} คน)` : " (ไม่ระบุ)"}
+              </button>
+            </div>
           </div>
         )}
 
@@ -828,7 +862,9 @@ function NoteItem({ note: n, dateKey, state, openLightbox, onUpload }) {
 
 function ScheduledTaskItem({ task, state }) {
   const t = task;
-  const o = (state.owners || []).find(x => x.id === t.owner);
+  const ownerIds = getTaskOwners(t);
+  const taskOwners = ownerIds.map(id => (state.owners || []).find(x => x.id === id)).filter(Boolean);
+  const firstColor = taskOwners[0]?.color || "var(--violet)";
   const author = store.user(t.author);
   const [expanded, setExpanded] = React.useState(false);
   const [isOverflowing, setIsOverflowing] = React.useState(false);
@@ -844,18 +880,18 @@ function ScheduledTaskItem({ task, state }) {
   const showCollapse = isOverflowing && !expanded;
 
   return (
-    <div className={"note-item " + (t.done ? "done" : "")} style={{ borderLeft: `3px solid ${o?.color || "var(--violet)"}` }}>
+    <div className={"note-item " + (t.done ? "done" : "")} style={{ borderLeft: `3px solid ${firstColor}` }}>
       <div className={"checkbox " + (t.done ? "checked" : "")} onClick={() => store.updateSideTask(t.id, { done: !t.done })}>
         {t.done && <Icon name="check" size={12} stroke={3}/>}
       </div>
       <div style={{ minWidth: 0 }}>
         <p className="note-text" style={{ fontWeight: 500 }}>{t.title}</p>
         <div className="note-meta">
-          {o && (
-            <span className="badge" style={{ color: o.color, background: o.color + "22", borderColor: o.color + "44" }}>
+          {taskOwners.map(o => (
+            <span key={o.id} className="badge" style={{ color: o.color, background: o.color + "22", borderColor: o.color + "44" }}>
               <span className="dot" style={{ background: o.color }}></span>{o.name}
             </span>
-          )}
+          ))}
           <span className="badge indigo" style={{ fontSize: 10 }}>📋 จากลิสต์งาน</span>
           {author && (
             <span className="author">
