@@ -145,7 +145,7 @@ function CalendarScreen() {
                   return (
                     <div key={t.id} className={"cal-note task-pill" + (t.done ? " done" : "")} style={{ borderLeftColor: o?.color || "var(--violet)" }} title={t.title + (t.details ? "\n" + t.details : "")}>
                       <Icon name="check" size={9} stroke={2.5} style={{ color: o?.color || "var(--violet)" }}/>
-                      {t.title}
+                      <span className="cal-note-text">{t.title}</span>
                     </div>
                   );
                 })}
@@ -154,7 +154,7 @@ function CalendarScreen() {
                   return (
                     <div key={n.id} className={"cal-note" + (n.done ? " done" : "")} style={{ borderLeftColor: cat?.color || "var(--violet)" }} title={n.text}>
                       <span className="cat-dot" style={{ background: cat?.color }}></span>
-                      {n.text}
+                      <span className="cal-note-text">{n.text}</span>
                     </div>
                   );
                 })}
