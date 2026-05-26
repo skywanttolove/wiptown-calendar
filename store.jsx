@@ -11,8 +11,8 @@
 // 5. Save this file & push. Sync will activate automatically.
 // =====================================================================
 const CLOUD = {
-  binId:  "",   // ตัวอย่าง: "6638abc1234e5f001234abcd"
-  apiKey: "",   // ตัวอย่าง: "$2a$10$xxxxxxxxxxxxxxxxxxxxxxxx"
+  binId:  "6a0d0c036610dd3ae872cd45",   // ตัวอย่าง: "6638abc1234e5f001234abcd"
+  apiKey: "$2a$10$8ll9pq4g1yxh4hxzJR29YuUaSROu/C/Ul6LYcjNEWctmLfZeMnXvG",   // ตัวอย่าง: "$2a$10$xxxxxxxxxxxxxxxxxxxxxxxx"
 };
 const CLOUD_ENABLED = !!(CLOUD.binId && CLOUD.apiKey);
 
