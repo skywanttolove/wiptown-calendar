@@ -63,7 +63,7 @@ function App() {
           <div className="sidebar-brand">
             <div className="logo">W</div>
             <div>
-              <div className="name">WIP Town</div>
+              <div className="name">WIP TOWN</div>
               <div className="sub">CALENDAR HUB</div>
             </div>
           </div>
